@@ -20,11 +20,14 @@ class ViameReader:
     }
 
     def __init__(self, path_input_dir, path_out_dir=None,
-                 img_size_out=None, class_names: dict = [], class_ignore: list = [], class_accumulation={}):
+                 img_size_out=None, class_names: dict = [],
+                 class_ignore: list = [],
+                 class_accumulation={},
+                 step_frame=1):
         """
         Example: class_accumulation = {"number":['0','1','2',..], "car":['truck', 'bus', ..]}
         """
-
+        self.step = step_frame
         self.img_size_out = img_size_out
         # self.path_csv = path_csv
         # self.uniq_name = os.path.basename(path_csv).split("\\")[-1].split(".")[-2] + "_"  # имя файла без расширения
@@ -137,6 +140,7 @@ class ViameReader:
 
         df = self._csv2df(path_csv)
         df = df[~df['class_name'].isin(self.class_ignore)]
+        df = df[df.frame.apply(lambda x: (x % self.step) == 0)]
 
         # images
         if proc_image:
@@ -235,9 +239,9 @@ class ViameReader:
         return os.path.basename(path_file).split("\\")[-1].split(".")[-2] + "_"  # имя файла без расширения + "_"
 
     def _get_class_id(self, class_name):
-        # пред обработка
-        if class_name.startswith("RWY"):
-            class_name = "RWY"
+        # пред обработка, берем имя класса до _
+        class_name = class_name.split('_', 1)[0]
+
         # изменяем имя класса если этого требует аккумулятор
         for key, list_class in self.class_accumulation.items():
             if class_name in list_class:

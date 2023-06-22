@@ -1,4 +1,4 @@
 # пакет содержит модули и классы для создания и обработки датасетов для обучения
 
 # позволяет создать датасет в формате yolo
-from viame2yolo import ViameReader
+from .viame2yolo import ViameReader
