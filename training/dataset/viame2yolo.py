@@ -10,7 +10,7 @@ from datetime import datetime
 from tqdm import tqdm
 
 
-class ViameReader:
+class ViameToYolo:
     """Читает csv Viame в df и создает файлы с кадрами и разметкой в удобном формате"""
     col_id_to_name = {
         0: 'track_id', 1: 'time_frame', 2: 'frame', 3: 'TL_x', 4: 'TL_y', 5: 'BR_x', 6: 'BR_y',
@@ -268,7 +268,8 @@ class ViameReader:
         df = pd.concat(df_list)
         del df_list
         class_name = pd.unique(df.sort_values(by='class_name')['class_name'])
-        print(class_name)
+        # print("Все классы:", class_name)
+        print("Только имена классов до _ :", set(cls.split("_", 1)[0] for cls in class_name))
 
     def start_processing(self, out_format='bbox_yolo', bar=True, proc_image=True):
         """"
@@ -303,6 +304,12 @@ class ViameReader:
             handler[out_format](video, csv, bar=True, proc_image=proc_image)
             print(f'Обработано {i + 1} видео из {len(files)}')
         print('Finish')
+        self.print_infoproc_to_file()
+
+    def print_infoproc_to_file(self):
+        with open(os.path.join(self.path_out_dir, "class_name.txt"), "w") as f:
+            print(self.class_id2class_name, file=f)
+            print(list(self.class_name2class_id), "; count =", self.len_class, file=f)
 
 
 if __name__ == "__main__":
@@ -311,7 +318,7 @@ if __name__ == "__main__":
 
     out_dir = "D:/db/test_db"
     id_dir = r'D:\viame_dataset'
-    vr = ViameReader(id_dir, img_size_out=None, path_out_dir=out_dir)
+    vr = ViameToYolo(id_dir, img_size_out=None, path_out_dir=out_dir)
     vr.start_processing(out_format='bbox_yolo')
     print(vr.class_id2class_name)
     print(list(vr.class_name2class_id), "; count =", vr.len_class)

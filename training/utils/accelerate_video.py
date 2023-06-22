@@ -62,7 +62,8 @@ def accelerate_video(video_path, start_frame=0, end_frame=None, step=10):
 
 
 if __name__ == "__main__":
-    video_path = r"C:\workspace\hakaton\hak2023_Digital_breakthrough_ekat\sources\TqN9mmMbhn4_2006.mp4"
+    video_path = r"C:\workspace\hakaton\hak2023_Digital_breakthrough_ekat\9Rc5BSwckWI_2106.mp4"
+
     start_frame = 0
     end_frame = None
     step = 30*10  # каждые 10 sec
