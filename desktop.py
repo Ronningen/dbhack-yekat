@@ -7,10 +7,13 @@ import sys
 from functools import wraps
 
 import cv2
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, \
     QFileDialog, QLabel, QHBoxLayout, QMessageBox, QCheckBox
 from PyQt6.QtGui import QPixmap, QIcon, QFont, QImage
+
+from pyqtgraph import PlotWidget, plot
+import pyqtgraph as pg
 
 import pandas as pd
 from controller import Controller
@@ -39,11 +42,11 @@ class MainWindow(QWidget):
         self.title = "мониторинг строительных работ"
         self.fname = ''
         self.InitWindow()
-        self.model = Controller(True)
+        self.model = Controller(stream=True)
 
     def InitWindow(self):
         self.setWindowIcon(QIcon())
-        self.setWindowTitle('icon')
+        self.setWindowTitle('занятость техники')
         vbox = QVBoxLayout()
 
         btnOpen = NoFocusButton("Загрузить")
@@ -56,13 +59,18 @@ class MainWindow(QWidget):
         topButtons.addWidget(btnSave)
         vbox.addLayout(topButtons)
 
-        self.canvas = QLabel("Добро пожаловать!")
-        self.canvas.setFont(QFont('Arial', 22))
-        self.canvas.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
         mainWindow = QVBoxLayout()
+        self.canvas = pg.PlotWidget()
+        self.canvas.setBackground('w')
+        self.data = self.canvas.plot([], [], pen=pg.mkPen(color=(200, 50, 50), width=2))
+        self.canvas.setYRange(0,1)
+        self.datay = []
         mainWindow.addWidget(self.canvas)
         vbox.addLayout(mainWindow)
+
+        self.timer = QTimer()
+        self.timer.setInterval(1)
+        self.timer.timeout.connect(self.updata)
 
         self.setLayout(vbox)
         btnOpen.setFocus()
@@ -78,35 +86,42 @@ class MainWindow(QWidget):
         msg.setText(error)
         msg.exec_()
 
-    def getFile(self,*args, **kwargs):
-        self.fname = QFileDialog.getOpenFileNames(self, 'Open file', os.path.expanduser("~/Desktop"), "Image files (*.jpg *.gif *.jpeg)")
+    def updata(self):
+        result = self.yielder.__next__()
+        self.datay.append(sum(result.values())/len(result))
+        self.data.setData(range(len(self.datay)), self.datay)
+
+    def getFile(self, *args, **kwargs):
+        self.fname = QFileDialog.getOpenFileNames(self, 'Open file', os.path.expanduser("~/Desktop"), "Video files (*.mp4)")
         try:
             files = self.fname[0]
             for file in files:
-                if not any(file.lower().endswith(ext) for ext in ['.jpg', '.gif', '.jpeg']):
-                    self.show_popup_window('Добавлено не фото! можно добавлять только фото.')
+                if not any(file.lower().endswith(ext) for ext in ['mp4']):
+                    self.show_popup_window('Добавлено не видео! можно добавлять только видео.')
                     return
                 else:
-                    self.model.predict(file) # TODO
+                    self.yielder = self.model.predict(file, show=True)
+                    self.timer.start()
+
+
         except IndexError as e:
             pass
 
-        self.canvas.setFocus()
-
     @check_file_loaded
     def saveFile(self, *args, **kwargs): # TODO
-        savefname = QFileDialog.getSaveFileName(self, "Save file", os.path.expanduser("~/Desktop"), ".csv")
-        d = {'кликун':0, 'малый':0, 'щипун':0}
-        n = len(self.fname[0])
-        df = pd.DataFrame({'фото':['']*n,'вид':['']*n})
-        for i in range(n):
-            pred = self.showingImage(i)
-            d[pred] += 1
-            df.at[i,'фото'] = self.fname[0][i]
-            df.at[i,'вид'] = pred
-        self.show_popup_window(f"подсчет фото - кликун: {d['кликун']}, малый: {d['малый']}, щипун: {d['щипун']}")
-        df.to_csv(savefname[0]+'.csv')
-        self.current = n-1
+        pass
+        # savefname = QFileDialog.getSaveFileName(self, "Save file", os.path.expanduser("~/Desktop"), ".csv")
+        # d = {'кликун':0, 'малый':0, 'щипун':0}
+        # n = len(self.fname[0])
+        # df = pd.DataFrame({'фото':['']*n,'вид':['']*n})
+        # for i in range(n):
+        #     pred = self.showingImage(i)
+        #     d[pred] += 1
+        #     df.at[i,'фото'] = self.fname[0][i]
+        #     df.at[i,'вид'] = pred
+        # self.show_popup_window(f"подсчет фото - кликун: {d['кликун']}, малый: {d['малый']}, щипун: {d['щипун']}")
+        # df.to_csv(savefname[0]+'.csv')
+        # self.current = n-1
 
 
 if __name__ == '__main__':
