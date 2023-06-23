@@ -258,9 +258,13 @@ class OnOffViame(Dataset):
         print("Сохранение видео роликов завершено.")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__": 
     path = r"D:\temp\drive-download-20230623T114328Z-001"
-    ds = OnOffViame(path_dir_dataset=path)
     path_out = r"D:\temp\drive-download-20230623T114328Z-001\test"
+    
+    # path = r"/Users/samedi/Desktop/v1"
+    # path_out = r"/Users/samedi/Documents/Coding/Hakatons/dbhack-yekat/clips"
+
+    ds = OnOffViame(path_dir_dataset=path)
     # chunk_size сколько треков хранить в памяти за раз, chunk_size=20 это примерно 8 гб в памяти
-    ds.save_all_clips(path_out, chunk_size=20)
+    ds.save_all_clips(path_out, chunk_size=1)
