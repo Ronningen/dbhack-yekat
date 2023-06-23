@@ -97,19 +97,21 @@ class OnOffViame(Dataset):
                              max_min_length=(30, 90),
                              clip_stride=1,
                              scale=0.1, 
-                             fps_stride=5) -> dict:
+                             clipall=True,
+                             changefps=False) -> dict:
         """ Возвращает кроп видео ролик
         Внимание! Алгоритм нарезки трека на клипы подразумевает что trak_id не выходит за рамки 0-99!
 
         :param track_id_list: None - возвращает все клипы, list возвращает только указанные треки
         :param max_min_length: (мин, макс) количество кадров для нарезки на клипы, None - не нарезать
-        :paran clip_stride: период вырезки клипов из видео: 1 нарезает все видео, 2 нарезает сумарно половину видео и т.д.
+        :param clip_stride: период вырезки клипов из видео: 1 нарезает все видео, 2 нарезает сумарно половину видео и т.д.
         :param scale: увелечение кропа в каждую сторону
-        :param fps_stride: шаг выборки кадров - аналогично уменьшению fps в stride раз
+        :param clipall: if true clip both on and off, if false clip only on
+        :param changefps: change fps form 30 to 6 if true
         :return {track_id: list_crop_frames} (при нарезки на клипы
                 track_id будет умножен на 100*[на номер нарезки из трека 1, 2, 3 и т.д.])
         """
-        df = self.df[self.df.file == path_video].iloc[::fps_stride]
+        df = self.df[self.df.file == path_video].iloc[::5 if changefps else 1]
         if track_id_list is not None and type(track_id_list) is list:
             df = df[df.track_id.isin(track_id_list)]
 
@@ -140,7 +142,8 @@ class OnOffViame(Dataset):
                 while i < l:
                     # если текущий кадр трека является след за предыдущим (в диапазоне 5 кадров)
                     if track_df.iloc[i-1].frame + 5 > track_df.iloc[i].frame > track_df.iloc[i-1].frame \
-                            and len_track < max_min_length[1]:
+                            and len_track < max_min_length[1] \
+                            and (clipall or track_df["worked"].iloc[i]):
                         len_track += 1
                         track_df.iloc[i, 0] = new_track_id
                     else:
@@ -218,7 +221,7 @@ class OnOffViame(Dataset):
         video.release()
         return track_clips
 
-    def save_all_clips(self, path_output, chunk_size=6, clip_stride=1):
+    def save_all_clips(self, path_output, chunk_size=6, clip_stride=1, clipall=True, changefps=False):
         """
         Создает в папке path_output две дирректории:
             on - для работающей техники worked == True
@@ -240,13 +243,15 @@ class OnOffViame(Dataset):
 
                 track_frames = self.get_clips_from_video(video_path, track_id_list=track_current_list,
                                                          bar_name=f'{i+1}/{len(self.video_file_list)}_{chunk_iter} processing',
-                                                         clip_stride=clip_stride)
+                                                         clip_stride=clip_stride,
+                                                         clipall=clipall,
+                                                         changefps=changefps)
 
                 # Извлекаем имя файла без расширения из video_path
                 file_name = os.path.splitext(os.path.basename(video_path))[0]
 
                 for track_id, clip_frames in tqdm(track_frames.items(), desc='saving'):
-                    if len(clip_frames) == 0 or len(clip_frames[0].shape)<2:
+                    if len(clip_frames) < 10 or len(clip_frames[0].shape)<2:
                         continue
 
                     track_id_old = track_id % 100  # возможно были выданы новые треки, получаем исходный
@@ -277,9 +282,10 @@ if __name__ == "__main__":
     # path = r"D:\temp\drive-download-20230623T114328Z-001"
     # path_out = r"D:\temp\drive-download-20230623T114328Z-001\test"
     
-    path = r"/Users/samedi/Library/CloudStorage/GoogleDrive-steplap2003@gmail.com/.shortcut-targets-by-id/1MaV_aLOgvn0jACkg_tsPiTktpwjB7ROQ/get"
+    # path = r"/Users/samedi/Library/CloudStorage/GoogleDrive-steplap2003@gmail.com/.shortcut-targets-by-id/1MaV_aLOgvn0jACkg_tsPiTktpwjB7ROQ/get"
+    path = r"/Users/samedi/Library/CloudStorage/GoogleDrive-ailuro.sm@gmail.com/My Drive/netrics/markup"
     path_out = r"/Users/samedi/Documents/Coding/Hakatons/dbhack-yekat/clips"
 
     ds = OnOffViame(path_dir_dataset=path)
     # chunk_size сколько треков хранить в памяти за раз, chunk_size=20 это примерно 8 гб в памяти
-    ds.save_all_clips(path_out, chunk_size=3, clip_stride=6)
+    ds.save_all_clips(path_out, chunk_size=3, clip_stride=1, clipall=False)
