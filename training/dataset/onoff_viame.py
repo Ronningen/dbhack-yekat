@@ -8,6 +8,8 @@ import pandas as pd
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
+# pd.options.mode.chained_assignment = None
+
 
 class OnOffViame(Dataset):
     """
@@ -88,24 +90,62 @@ class OnOffViame(Dataset):
         df = pd.concat(df_list)
         return df, files_mp4
 
-    def get_clips_from_video(self, path_video, track_id_list=None, bar_name='') -> dict:
+    def get_clips_from_video(self, path_video, track_id_list=None, bar_name='',
+                             max_min_length=(30, 90),
+                             scale=0.1) -> dict:
         """ Возвращает кроп видео ролик
+        Внимание! Алгоритм нарезки трека на клипы подразумевает что trak_id не выходит за рамки 0-99!
+
         :param track_id_list: None - возвращает все клипы, list возвращает только указанные треки
-        :return {track_id: list_crop_frames}
+        :param max_min_length: (мин, макс) количество кадров для нарезки на клипы, None - не нарезать
+        :param scale: увелечение кропа в каждую сторону
+        :return {track_id: list_crop_frames} (при нарезки на клипы
+                track_id будет умножен на 100*[на номер нарезки из трека 1, 2, 3 и т.д.])
         """
         df = self.df[self.df.file == path_video]
         if track_id_list is not None and type(track_id_list) is list:
             df = df[df.track_id.isin(track_id_list)]
+
+        df = df.sort_values('frame')
 
         track_id_list = list(df.track_id.unique())
         if len(track_id_list) == 0:
             print("Треки в видео не найдены")
             return None
 
-        #####
-        # Внимание! Возможно не обходимо делать клипы только для последовательных кадров.
-        # Сейчас клип собирается из всех кадров трека
-        #####
+        # Разделение треков на подтреки
+        print("track spliting...")
+        if max_min_length is not None:
+
+            new_track_id_list = []
+            new_df_track_list = []
+            for track_id in track_id_list:
+                track_df = df[df.track_id == track_id]  # Фильтруем только данные для текущего трека
+
+                counter_new_track = 1
+                new_track_id = 100 * counter_new_track + track_id
+                new_track_id_list.append(new_track_id)
+                # track_id column = 0
+                track_df.iloc[0, 0] = new_track_id
+                len_track = 0
+                for i in range(1, len(track_df)):
+                    # если текущий кадр трека является след за предыдущим (в диапазоне 5 кадров)
+                    if track_df.iloc[i-1].frame + 5 > track_df.iloc[i].frame > track_df.iloc[i-1].frame \
+                            and len_track < max_min_length[1]:
+                        len_track += 1
+                        track_df.iloc[i, 0] = new_track_id
+                    else:
+                        len_track = 0
+                        counter_new_track += 1
+                        new_track_id = 100 * counter_new_track + track_id
+                        new_track_id_list.append(new_track_id)
+                        track_df.iloc[i, 0] = new_track_id
+                    # сохраняем df c новыми треками
+                new_df_track_list.append(track_df)
+
+            df = pd.concat(new_df_track_list)
+            track_id_list = new_track_id_list
+            del new_df_track_list
 
         # Создаем словарь для хранения координат кропов для каждого трека
         track_crops = {}
@@ -113,11 +153,26 @@ class OnOffViame(Dataset):
         # Вычисляем координаты кропов для каждого трека
         for track_id in track_id_list:
             track_df = df[df.track_id == track_id]  # Фильтруем только данные для текущего трека
+            if len(track_df) < 1:
+                continue
+
+            # если длинна трека не в диапазоне - скип
+            if max_min_length is not None and max_min_length[0] > len(track_df) > max_min_length[1]:
+                continue
+
             # Получаем минимальные и максимальные координаты боксов трека
             min_x = track_df['x1'].min()
             min_y = track_df['y1'].min()
             max_x = track_df['x2'].max()
             max_y = track_df['y2'].max()
+            w_crop = max_x - min_x
+            h_crop = max_y - min_y
+            # пересчитываем координаты со скейлом
+            min_x = max(0, int(min_x - w_crop * scale))
+            min_y = max(0, int(min_y - h_crop * scale))
+            max_x = min(int(max_x + w_crop * scale), track_df.img_w.iloc[0])
+            max_y = min(int(max_y + h_crop * scale), track_df.img_h.iloc[0])
+
             track_crops[track_id] = (min_x, min_y, max_x, max_y)
 
         # Читаем видеофайл
@@ -137,18 +192,20 @@ class OnOffViame(Dataset):
             ret, frame = video.read()
             if not ret:
                 break
-
+            track_id_frame = df[df.frame == frame_num].track_id.values
             # Обрабатываем каждый трек
             for track_id, crop_coords in track_crops.items():
+                if track_id not in track_id_frame:
+                    continue
                 # кропим и добавляем в лист
                 min_x, min_y, max_x, max_y = crop_coords
-                clip_frame = frame[min_y:max_y, min_x:max_x]
+                clip_frame = frame[min_y:max_y, min_x:max_x].copy()
                 track_clips[track_id].append(clip_frame)
 
         video.release()
         return track_clips
 
-    def save_all_clips(self, path_output):
+    def save_all_clips(self, path_output, chunk_size=6):
         """
         Создает в папке path_output две дирректории:
             on - для работающей техники worked == True
@@ -163,39 +220,45 @@ class OnOffViame(Dataset):
         os.makedirs(off_dir, exist_ok=True)
 
         for i, video_path in enumerate(self.video_file_list):
-            # print(f"[{i+1}/{len(video_path)}", end=' ')
-            track_frames = self.get_clips_from_video(video_path, track_id_list=None,
-                                                     bar_name=f'{i+1}/{len(self.video_file_list)} processing')
+            # сохраняем пачками по chunk_size треков, чтобы все поместилось в памяти
+            track_list = list(self.df[self.df.file == video_path].track_id.unique())
+            for chunk_iter, chunk_index in enumerate(range(0, len(track_list), chunk_size)):
+                track_current_list = track_list[chunk_index:chunk_index+chunk_size]
 
-            # Извлекаем имя файла без расширения из video_path
-            file_name = os.path.splitext(os.path.basename(video_path))[0]
+                track_frames = self.get_clips_from_video(video_path, track_id_list=track_current_list,
+                                                         bar_name=f'{i+1}/{len(self.video_file_list)}_{chunk_iter} processing')
 
-            for track_id, clip_frames in tqdm(track_frames.items(), desc='saving'):
-                # Проверяем значение self.df.worked для данного video_path и track_id
-                track_info = self.df[(self.df.file == video_path) & (self.df.track_id == track_id)]
-                worked = track_info["worked"].iloc[0]
+                # Извлекаем имя файла без расширения из video_path
+                file_name = os.path.splitext(os.path.basename(video_path))[0]
 
-                # Определяем путь для сохранения видео в соответствующую директорию
-                save_path = os.path.join(on_dir if worked else off_dir ,
-                                         f"{file_name}_"
-                                         f"{track_info['name'].iloc[0]}_"
-                                         f"{track_id}_"
-                                         f"{'on' if worked else 'off'}.mp4")
+                for track_id, clip_frames in tqdm(track_frames.items(), desc='saving'):
+                    track_id_old = track_id % 100  # возможно были выданы новые треки, получаем исходный
+                    # Проверяем значение self.df.worked для данного video_path и track_id
+                    track_info = self.df[(self.df.file == video_path) & (self.df.track_id == track_id_old)]
+                    worked = track_info["worked"].iloc[0]
 
-                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-                out = cv2.VideoWriter(save_path, fourcc, 30,
-                                      (clip_frames[0].shape[1], clip_frames[0].shape[0]))
-                # Записываем каждый кадр кропа в видео
-                for frame in clip_frames:
-                    out.write(frame)
-                out.release()
+                    # Определяем путь для сохранения видео в соответствующую директорию
+                    save_path = os.path.join(on_dir if worked else off_dir ,
+                                             f"{file_name}_"
+                                             f"{track_info['name'].iloc[0]}_"
+                                             f"{track_id}_"
+                                             f"{'on' if worked else 'off'}.mp4")
+
+                    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                    out = cv2.VideoWriter(save_path, fourcc, 30,
+                                          (clip_frames[0].shape[1], clip_frames[0].shape[0]))
+                    # Записываем каждый кадр кропа в видео
+                    for frame in clip_frames:
+                        out.write(frame)
+                    out.release()
+                track_frames = {}
 
         print("Сохранение видео роликов завершено.")
 
 
-
 if __name__ == "__main__":
-    path = r"G:\Мой диск\5min\get"
+    path = r"D:\temp\drive-download-20230623T114328Z-001"
     ds = OnOffViame(path_dir_dataset=path)
-    path_out = r"C:\workspace\hakaton\hak2023_Digital_breakthrough_ekat\ds_onoff"
-    ds.save_all_clips(path_out)
+    path_out = r"D:\temp\drive-download-20230623T114328Z-001\test"
+    # chunk_size сколько треков хранить в памяти за раз, chunk_size=20 это примерно 8 гб в памяти
+    ds.save_all_clips(path_out, chunk_size=20)
