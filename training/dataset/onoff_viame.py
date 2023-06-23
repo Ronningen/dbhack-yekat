@@ -46,7 +46,9 @@ class OnOffViame(Dataset):
             _desc = f.readline() + f.readline()  # первый две строки содержат описание колонок
             df = pd.read_csv(f, header=None, names=self.col_id_to_name.values(), engine='python')
             df.sort_values(by='frame', inplace=True)
-            df[['name', 'worked']] = df.name.str.split(pat='_', n=1, expand=True)
+            df[['name', 'worked']] = df.name.str.split(pat='_', n=1).\
+                apply(lambda x: x + ['off'] if len(x) < 2 else x).\
+                apply(pd.Series)
             df['worked'] = df['worked'].str.startswith('on')
             df[['x1', 'x2', 'y1', 'y2', 'frame', 'track_id']] = df[['x1', 'x2', 'y1', 'y2', 'frame', 'track_id']].astype(int)
             df.w = df.x2 - df.x1
@@ -257,8 +259,8 @@ class OnOffViame(Dataset):
 
 
 if __name__ == "__main__":
-    path = r"D:\temp\drive-download-20230623T114328Z-001"
+    path = r"G:\Мой диск\5min\get"
     ds = OnOffViame(path_dir_dataset=path)
-    path_out = r"D:\temp\drive-download-20230623T114328Z-001\test"
+    path_out = r"G:\Мой диск\5min\onof"
     # chunk_size сколько треков хранить в памяти за раз, chunk_size=20 это примерно 8 гб в памяти
-    ds.save_all_clips(path_out, chunk_size=20)
+    ds.save_all_clips(path_out, chunk_size=18)
