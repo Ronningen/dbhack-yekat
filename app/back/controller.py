@@ -9,9 +9,9 @@ import torch
 import pandas as pd
 from ultralytics.yolo.engine.results import Results
 
-from detector import Detector
-from classifier import Classifier
-from metamodel import Meta, std_predict
+from app.back.detector import Detector
+from app.back.classifier import Classifier
+from app.back.metamodel import Meta, std_predict
 
 
 ROOT = pathlib.Path(__file__).parent

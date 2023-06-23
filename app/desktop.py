@@ -16,7 +16,7 @@ from pyqtgraph import PlotWidget, plot
 import pyqtgraph as pg
 
 import pandas as pd
-from controller import Controller
+from app.back.controller import Controller
 
 
 def check_file_loaded(func):
