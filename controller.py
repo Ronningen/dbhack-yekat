@@ -89,4 +89,4 @@ class Controller():
 
 if __name__=='__main__':
     c = Controller(True)
-    c.predict('/Users/samedi/Downloads/613iFGJm0HM_1906_04.mp4')
+    c.predict('/Users/samedi/Downloads/613iFGJm0HM_1906_04.mp4', show=True)
