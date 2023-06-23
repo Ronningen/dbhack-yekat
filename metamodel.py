@@ -16,7 +16,7 @@ class Meta():
     
 
 def std_predict(X):
-    return np.tanh((np.std(np.array(X), axis=0)/3).sum())
+    return np.tanh((np.std(np.array(X), axis=0)/30).sum())
 
 
 if __name__=='__main__':

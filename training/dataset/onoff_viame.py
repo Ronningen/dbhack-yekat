@@ -92,7 +92,7 @@ class OnOffViame(Dataset):
 
     def get_clips_from_video(self, path_video, track_id_list=None, bar_name='',
                              max_min_length=(30, 90),
-                             scale=0.1) -> dict:
+                             scale=0.1, stride=5) -> dict:
         """ Возвращает кроп видео ролик
         Внимание! Алгоритм нарезки трека на клипы подразумевает что trak_id не выходит за рамки 0-99!
 
@@ -102,7 +102,7 @@ class OnOffViame(Dataset):
         :return {track_id: list_crop_frames} (при нарезки на клипы
                 track_id будет умножен на 100*[на номер нарезки из трека 1, 2, 3 и т.д.])
         """
-        df = self.df[self.df.file == path_video]
+        df = self.df[self.df.file == path_video].iloc[::stride]
         if track_id_list is not None and type(track_id_list) is list:
             df = df[df.track_id.isin(track_id_list)]
 
@@ -245,7 +245,7 @@ class OnOffViame(Dataset):
                                              f"{'on' if worked else 'off'}.mp4")
 
                     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-                    out = cv2.VideoWriter(save_path, fourcc, 30,
+                    out = cv2.VideoWriter(save_path, fourcc, 6,
                                           (clip_frames[0].shape[1], clip_frames[0].shape[0]))
                     # Записываем каждый кадр кропа в видео
                     for frame in clip_frames:
@@ -257,8 +257,8 @@ class OnOffViame(Dataset):
 
 
 if __name__ == "__main__":
-    path = r"D:\temp\drive-download-20230623T114328Z-001"
+    path = r"/Users/samedi/Desktop/v1"
     ds = OnOffViame(path_dir_dataset=path)
-    path_out = r"D:\temp\drive-download-20230623T114328Z-001\test"
+    path_out = r"/Users/samedi/Documents/Coding/Hakatons/dphack-yekat/clips"
     # chunk_size сколько треков хранить в памяти за раз, chunk_size=20 это примерно 8 гб в памяти
-    ds.save_all_clips(path_out, chunk_size=20)
+    ds.save_all_clips(path_out, chunk_size=2)

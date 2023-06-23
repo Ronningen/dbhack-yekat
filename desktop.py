@@ -46,7 +46,7 @@ class MainWindow(QWidget):
 
     def InitWindow(self):
         self.setWindowIcon(QIcon())
-        self.setWindowTitle('icon')
+        self.setWindowTitle('занятость техники')
         vbox = QVBoxLayout()
 
         btnOpen = NoFocusButton("Загрузить")
@@ -63,6 +63,7 @@ class MainWindow(QWidget):
         self.canvas = pg.PlotWidget()
         self.canvas.setBackground('w')
         self.data = self.canvas.plot([], [], pen=pg.mkPen(color=(200, 50, 50), width=2))
+        self.canvas.setYRange(0,1)
         self.datay = []
         mainWindow.addWidget(self.canvas)
         vbox.addLayout(mainWindow)

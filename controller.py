@@ -37,7 +37,7 @@ class Controller():
         if torch.cuda.is_available():
             device='0'
 
-        self.detector = Detector(ROOT.joinpath('bin/v8m_ep3.pt'), device)
+        self.detector = Detector(ROOT.joinpath('bin/best.pt'), device)
         # self.classifier = Classifier(ROOT.joinpath('bin/classifier.onnx'), device)
         # self.meta = Meta(ROOT.joinpath('bin/meta.cbm'))
     
