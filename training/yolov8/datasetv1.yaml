@@ -1,0 +1,8 @@
+path: C:\workspace\hakaton\hak2023_Digital_breakthrough_ekat\temp_dataset_yolo  # dataset root dir
+train: train  # train images (relative to 'path') 128 images
+val: val  # val images (relative to 'path') 128 images
+test:  # test images (optional)
+
+# Classes
+nc: 5  # number of classes
+names: ['earth', 'bobcat', 'crane', 'loader', 'truck']  # class names
