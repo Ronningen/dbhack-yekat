@@ -7,6 +7,7 @@ import cv2
 import pandas as pd
 from torch.utils.data import Dataset
 from tqdm import tqdm
+from numpy import random
 
 # pd.options.mode.chained_assignment = None
 
@@ -94,17 +95,21 @@ class OnOffViame(Dataset):
 
     def get_clips_from_video(self, path_video, track_id_list=None, bar_name='',
                              max_min_length=(30, 90),
-                             scale=0.1, stride=5) -> dict:
+                             clip_stride=1,
+                             scale=0.1, 
+                             fps_stride=5) -> dict:
         """ Возвращает кроп видео ролик
         Внимание! Алгоритм нарезки трека на клипы подразумевает что trak_id не выходит за рамки 0-99!
 
         :param track_id_list: None - возвращает все клипы, list возвращает только указанные треки
         :param max_min_length: (мин, макс) количество кадров для нарезки на клипы, None - не нарезать
+        :paran clip_stride: период вырезки клипов из видео: 1 нарезает все видео, 2 нарезает сумарно половину видео и т.д.
         :param scale: увелечение кропа в каждую сторону
+        :param fps_stride: шаг выборки кадров - аналогично уменьшению fps в stride раз
         :return {track_id: list_crop_frames} (при нарезки на клипы
                 track_id будет умножен на 100*[на номер нарезки из трека 1, 2, 3 и т.д.])
         """
-        df = self.df[self.df.file == path_video].iloc[::stride]
+        df = self.df[self.df.file == path_video].iloc[::fps_stride]
         if track_id_list is not None and type(track_id_list) is list:
             df = df[df.track_id.isin(track_id_list)]
 
@@ -130,18 +135,24 @@ class OnOffViame(Dataset):
                 # track_id column = 0
                 track_df.iloc[0, 0] = new_track_id
                 len_track = 0
-                for i in range(1, len(track_df)):
+
+                i, l = 0, len(track_df)
+                while i < l:
                     # если текущий кадр трека является след за предыдущим (в диапазоне 5 кадров)
                     if track_df.iloc[i-1].frame + 5 > track_df.iloc[i].frame > track_df.iloc[i-1].frame \
                             and len_track < max_min_length[1]:
                         len_track += 1
                         track_df.iloc[i, 0] = new_track_id
                     else:
+                        i += random.randint(*max_min_length)*(clip_stride - 1)
+                        if i >= l: 
+                            break
                         len_track = 0
                         counter_new_track += 1
                         new_track_id = 100 * counter_new_track + track_id
                         new_track_id_list.append(new_track_id)
                         track_df.iloc[i, 0] = new_track_id
+                    i+=1
                     # сохраняем df c новыми треками
                 new_df_track_list.append(track_df)
 
@@ -207,7 +218,7 @@ class OnOffViame(Dataset):
         video.release()
         return track_clips
 
-    def save_all_clips(self, path_output, chunk_size=6):
+    def save_all_clips(self, path_output, chunk_size=6, clip_stride=1):
         """
         Создает в папке path_output две дирректории:
             on - для работающей техники worked == True
@@ -228,12 +239,16 @@ class OnOffViame(Dataset):
                 track_current_list = track_list[chunk_index:chunk_index+chunk_size]
 
                 track_frames = self.get_clips_from_video(video_path, track_id_list=track_current_list,
-                                                         bar_name=f'{i+1}/{len(self.video_file_list)}_{chunk_iter} processing')
+                                                         bar_name=f'{i+1}/{len(self.video_file_list)}_{chunk_iter} processing',
+                                                         clip_stride=clip_stride)
 
                 # Извлекаем имя файла без расширения из video_path
                 file_name = os.path.splitext(os.path.basename(video_path))[0]
 
                 for track_id, clip_frames in tqdm(track_frames.items(), desc='saving'):
+                    if len(clip_frames) == 0 or len(clip_frames[0].shape)<2:
+                        continue
+
                     track_id_old = track_id % 100  # возможно были выданы новые треки, получаем исходный
                     # Проверяем значение self.df.worked для данного video_path и track_id
                     track_info = self.df[(self.df.file == video_path) & (self.df.track_id == track_id_old)]
@@ -259,12 +274,12 @@ class OnOffViame(Dataset):
 
 
 if __name__ == "__main__": 
-    path = r"D:\temp\drive-download-20230623T114328Z-001"
-    path_out = r"D:\temp\drive-download-20230623T114328Z-001\test"
+    # path = r"D:\temp\drive-download-20230623T114328Z-001"
+    # path_out = r"D:\temp\drive-download-20230623T114328Z-001\test"
     
-    # path = r"/Users/samedi/Desktop/v1"
-    # path_out = r"/Users/samedi/Documents/Coding/Hakatons/dbhack-yekat/clips"
+    path = r"/Users/samedi/Library/CloudStorage/GoogleDrive-steplap2003@gmail.com/.shortcut-targets-by-id/1MaV_aLOgvn0jACkg_tsPiTktpwjB7ROQ/get"
+    path_out = r"/Users/samedi/Documents/Coding/Hakatons/dbhack-yekat/clips"
 
     ds = OnOffViame(path_dir_dataset=path)
     # chunk_size сколько треков хранить в памяти за раз, chunk_size=20 это примерно 8 гб в памяти
-    ds.save_all_clips(path_out, chunk_size=1)
+    ds.save_all_clips(path_out, chunk_size=3, clip_stride=6)
