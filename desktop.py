@@ -99,7 +99,7 @@ class MainWindow(QWidget):
                     self.show_popup_window('Добавлено не видео! можно добавлять только видео.')
                     return
                 else:
-                    self.yielder = self.model.predict(file)
+                    self.yielder = self.model.predict(file, show=True)
                     self.timer.start()
 
 
