@@ -2,8 +2,34 @@
     Scrypt for classifier model inference
 """
 import torch
-import torch
 from torchvision.models.video import mvit_v2_s, MViT_V2_S_Weights
+import os
+import torchvision
+resize_to = 224
+class Padding(torch.nn.Module):
+    def __init__(self, min_height, min_width):
+        super().__init__()
+        self.min_height = min_height
+        self.min_width = min_width
+
+    def forward(self, images):
+        if images.shape[1] < self.min_height:
+            images = torchvision.transforms.functional.pad(images, (0,0,0,(self.min_height-images.shape[1])))
+        if images.shape[2] < self.min_width:
+            images = torchvision.transforms.functional.pad(images, (0,0,self.min_width - images.shape[2], 0))
+        return images
+
+test_transform = Compose([
+                    UniformTemporalSubsample(16),
+                    Lambda(lambda x: x / 255.0),
+                    Normalize((0.45, 0.45, 0.45), (0.225, 0.225, 0.225)),
+                    #RandomShortSideScale(min_size=100, max_size=128),
+                    RandomHorizontalFlip(p=0.5),
+                    RandomPerspective(distortion_scale=0.35, p=0.7),
+                    Padding(min_height=200, min_width=200),
+                    Resize((resize_to, resize_to))
+                ]
+)
 
 
 class Classifier():
@@ -17,7 +43,7 @@ class Classifier():
         self.model.head[1] = torch.nn.Linear(768, 2)
         self.model.eval()
         self.device = device
-        self.transforms = MViT_V2_S_Weights.KINETICS400_V1.transforms()
+        self.transforms = test_transform
         self.checkpoint = torch.load(path, map_location=self.device)
         self.model.load_state_dict(self.checkpoint['model_state_dict'])
         self.idx2class = {0: 'off', 1: 'on'}
@@ -31,8 +57,8 @@ class Classifier():
         # full_video_tensor = handle_video_path(video_path)
         video = video.to(self.device)
         video = self.transforms(video)
-        pred = torch.argmax(self.model(video.unsqueeze(0)))
-        return pred, self.idx2class[pred]
+        pred = torch.argmax(torch.nn.functional.softmax(self.model(video.unsqueeze(0)), dim=-1))
+        return pred, self.idx2class[int(pred)]
 
     # def handle_video_path(self, video_path: str) -> torch.FloatTensor:
         # video = EncodedVideo.from_path(video_path)
