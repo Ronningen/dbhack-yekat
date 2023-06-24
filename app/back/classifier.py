@@ -5,8 +5,6 @@ import torch
 import torch
 from torchvision.models.video import mvit_v2_s, MViT_V2_S_Weights
 
-model.head[1] = torch.nn.Linear(768, 2)
-
 
 class Classifier():
     def __init__(self, path, device='cpu') -> None:
@@ -17,6 +15,7 @@ class Classifier():
         :param device:
         '''
         self.model = mvit_v2_s()
+        self.model.head[1] = torch.nn.Linear(768, 2)
         self.model.eval()
         self.device = device
         self.transforms = MViT_V2_S_Weights.KINETICS400_V1.transforms()
