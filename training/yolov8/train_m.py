@@ -6,18 +6,20 @@ from ultralytics import YOLO
 
 if __name__ == '__main__':
     # weight = 'yolov8m.pt'
-    weight = './runs/detect/attempt_22/weights/best.pt'
+    weight = './runs/detect/attempt_3/weights/best.pt'
     model = YOLO(weight)
 
     model.train(
-        data='datasetv2.yaml',
+        data='netrics1.yaml',
         imgsz=1280,
         batch=4,
         cache=False,
         patience=5,
-        name="attempt_3",
+        name="net_1",
         degrees=15,
         mixup=0.5,
+        shear=0.1,
+        perspective=0.0005,
         epochs=10
     )
 
