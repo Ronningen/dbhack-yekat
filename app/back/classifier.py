@@ -5,6 +5,24 @@ import torch
 from torchvision.models.video import mvit_v2_s, MViT_V2_S_Weights
 import os
 import torchvision
+from pytorchvideo.transforms import (
+    ApplyTransformToKey,
+    Normalize,
+    RandomShortSideScale,
+    RemoveKey,
+    ShortSideScale,
+    UniformTemporalSubsample,
+)
+
+from torchvision.transforms import (
+    Compose,
+    Lambda,
+    RandomCrop,
+    RandomHorizontalFlip,
+    RandomPerspective,
+    Pad,
+    Resize,
+)
 resize_to = 224
 class Padding(torch.nn.Module):
     def __init__(self, min_height, min_width):
@@ -33,21 +51,24 @@ test_transform = Compose([
 
 
 class Classifier():
-    def __init__(self, path, device='cpu') -> None:
+    def __init__(self, path, onnx_path=None, device='cpu') -> None:
         '''
         :param path: путь до сохраненной модели
         :param clip_duration:
         :param device:
         '''
-        self.model = mvit_v2_s()
-        self.model.head[1] = torch.nn.Linear(768, 2)
-        self.model.eval()
-        self.device = device
-        self.transforms = test_transform
-        self.checkpoint = torch.load(path, map_location=self.device)
-        self.model.load_state_dict(self.checkpoint['model_state_dict'])
-        self.idx2class = {0: 'off', 1: 'on'}
-        self.class2idx = {'off': 0, 'on': 1}
+        if onnx_path != None:
+            pass
+        else:
+            self.model = mvit_v2_s()
+            self.model.head[1] = torch.nn.Linear(768, 2)
+            self.model.eval()
+            self.device = device
+            self.transforms = test_transform
+            self.checkpoint = torch.load(path, map_location=self.device)
+            self.model.load_state_dict(self.checkpoint['model_state_dict'])
+            self.idx2class = {0: 'off', 1: 'on'}
+            self.class2idx = {'off': 0, 'on': 1}
 
     def predict(self, video: torch.FloatTensor):
         '''
