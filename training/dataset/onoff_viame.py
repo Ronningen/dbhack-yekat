@@ -227,7 +227,7 @@ class OnOffViame(Dataset):
         video.release()
         return track_clips
 
-    def save_all_clips(self, path_output, chunk_size=6, on_stride=1, off_stride=5):
+    def save_all_clips(self, path_output, chunk_size=6, on_stride=1, off_stride=5, start=0):
         """
         Создает в папке path_output две дирректории:
             on - для работающей техники worked == True
@@ -242,6 +242,9 @@ class OnOffViame(Dataset):
         os.makedirs(off_dir, exist_ok=True)
 
         for i, video_path in enumerate(self.video_file_list):
+            if i < start:
+                continue
+
             # сохраняем пачками по chunk_size треков, чтобы все поместилось в памяти
             track_list = list(self.df[self.df.file == video_path].track_id.unique())
             for chunk_iter, chunk_index in enumerate(range(0, len(track_list), chunk_size)):
@@ -290,10 +293,11 @@ if __name__ == "__main__":
     # path_out = r"D:\temp\drive-download-20230623T114328Z-001\test"
     
     # path = r"/Users/samedi/Desktop/v1"
-    path = r"/Users/samedi/Library/CloudStorage/GoogleDrive-steplap2003@gmail.com/.shortcut-targets-by-id/1MaV_aLOgvn0jACkg_tsPiTktpwjB7ROQ/get"
-    # path = r"/Users/samedi/Library/CloudStorage/GoogleDrive-ailuro.sm@gmail.com/My Drive/netrics/markup"
-    path_out = r"/Users/samedi/Documents/Coding/Hakatons/dbhack-yekat/clips-prehack"
+    # path = r"/Users/samedi/Library/CloudStorage/GoogleDrive-steplap2003@gmail.com/.shortcut-targets-by-id/1MaV_aLOgvn0jACkg_tsPiTktpwjB7ROQ/get"
+    
+    path = r"/Users/samedi/Library/CloudStorage/GoogleDrive-ailuro.sm@gmail.com/My Drive/netrics/markup"
+    path_out = r"/Users/samedi/Library/CloudStorage/GoogleDrive-ailuro.sm@gmail.com/My Drive/netrics/clips-hack-final"
 
     ds = OnOffViame(path_dir_dataset=path, changefps=False)
     # chunk_size сколько треков хранить в памяти за раз, chunk_size=20 это примерно 8 гб в памяти
-    ds.save_all_clips(path_out, chunk_size=5)
+    ds.save_all_clips(path_out, chunk_size=5, start=22)

@@ -1,6 +1,7 @@
 from copy import deepcopy
 
 import numpy as np
+from PIL.Image import Image
 import torch
 
 from ultralytics.yolo.data.augment import LetterBox

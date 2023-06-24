@@ -84,13 +84,16 @@ class Controller():
         self.classifier = Classifier(ROOT.joinpath('../../bin/checkpoint_13.zip'), device)
 
         self.last_tracks = {}
+        self.last_tracks_cls = {}
     
     def predict(self, source, show=False):
         """
             Predict from video
         """
         self.last_tracks = {}
+        self.last_tracks_cls = {}
         tracks = {} # история всех треков за все видео id: [(номер фрейма, бокс, активность), ...]
+        tracks_cls = {}
         tracks_counter = {} # счетчик расчета движения для клипов из трека
         video_buff = [] # TODO: для оптимизации заменить на queue
 
@@ -121,11 +124,14 @@ class Controller():
                 # положить в трек (номер фрейма, бокс)
                 activities[id] = activity
                 tracks[id] = tracks.get(id, []) + [(frameidx, box, activity)]
+                tracks_cls[id] = tracks_cls.get(id, {})
+                tracks_cls[id][cls] = tracks_cls[id].get(cls, 0) + 1
 
             if self.stream:
                 yield frameidx, result, activities
 
         self.last_tracks = tracks
+        self.last_tracks_cls = tracks_cls
         if not self.stream:
             return tracks
     

@@ -6,11 +6,14 @@ import os
 import sys
 from functools import wraps
 import json
+import operator
 
 import cv2
+from PIL import Image
+from PIL.ImageQt import ImageQt
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, \
-    QFileDialog, QLabel, QHBoxLayout, QMessageBox, QCheckBox
+    QFileDialog, QLabel, QHBoxLayout, QMessageBox
 from PyQt6.QtGui import QPixmap, QIcon, QFont, QImage
 
 from pyqtgraph import PlotWidget, plot
@@ -19,7 +22,11 @@ import pyqtgraph as pg
 import pandas as pd
 from ultralytics.yolo.engine.results import Results
 from back.controller import Controller
-# from back.custom_plot import cuctom_plot
+from back.custom_plot import cuctom_plot
+
+
+def frame2time(frame: int, *args, **kwargs) -> str:
+    return str(frame)
 
 
 def check_file_loaded(func):
@@ -56,7 +63,7 @@ class MainWindow(QWidget):
         # кнопки
         btnOpen = NoFocusButton("Загрузить")
         btnOpen.clicked.connect(self.getFile)
-        btnSave = NoFocusButton("Сохранить csv")
+        btnSave = NoFocusButton("Сохранить .json")
         btnSave.clicked.connect(self.saveFile)
         topButtons = QHBoxLayout()
         topButtons.addWidget(btnOpen)
@@ -64,6 +71,8 @@ class MainWindow(QWidget):
         vbox.addLayout(topButtons)
 
         # видеовывод
+        self.vlabel = QLabel()
+        vbox.addWidget(self.vlabel)
 
         # статистика
         mainWindow = QHBoxLayout()
@@ -108,18 +117,26 @@ class MainWindow(QWidget):
         msg = QMessageBox()
         msg.setWindowTitle("Внимание!")
         msg.setText(text)
-        msg.exec_()
+        msg.exec()
 
     def updata(self):
         try:
             frameidx, result, activities = self.yielder.__next__()
-            img = result.plot(conf=True, line_width=3, labels=True)
+            img = Image.fromarray(cuctom_plot(result, conf=True, line_width=4, labels=True, boxes=True)[:,:,::-1])
+            img.thumbnail((1028, 1000), Image.ANTIALIAS)
+            self.vlabel.setPixmap(QPixmap.fromImage(ImageQt(img)))
 
         except StopIteration:
             tracks = self.model.last_tracks
-            for id in  tracks:
-                event = {'id':id, 'start':tracks[id][0][0], 'end':tracks[id][-1][0]}
-                self.json[-1]['events'].apppend(event)
+            clss = self.model.last_tracks_cls
+            for id in tracks:
+                event = {'id': id, 'class': max(clss[id], key=clss[id].get), 
+                         'start': frame2time(tracks[id][0][0]), 'end': frame2time(tracks[id][-1][0]), 
+                         'notes':[], 'activity events':[], 'trajectory':[]}
+                for frameidx, box, activity in tracks[id]:
+                    event['trajectory'].append([(box[0]+box[2])/2, (box[1]+box[3])/2])
+
+                self.json[-1]['events'].append(event)
 
             self.timer.stop()
             self.show_popup_window('Обработка видео сохранена, вы можете сохранить файл')
@@ -147,7 +164,7 @@ class MainWindow(QWidget):
             return
         
         savefname = QFileDialog.getSaveFileName(self, "Save file", os.path.expanduser("~/Desktop"), ".json")[0]
-        json.dump(self.json, open(savefname, "w", encoding ='utf8'))
+        json.dump(self.json, open(savefname, "w", encoding ='utf8'), indent=4)
 
 if __name__ == '__main__':
     App = QApplication(sys.argv)

@@ -51,33 +51,34 @@ test_transform = Compose([
 
 
 class Classifier():
-    def __init__(self, path, onnx_path=None, device='cpu') -> None:
+    def __init__(self, path, device='cpu', onnx_path=None,) -> None:
         '''
         :param path: путь до сохраненной модели
         :param clip_duration:
         :param device:
         '''
-        if onnx_path != None:
-            pass
-        else:
-            self.model = mvit_v2_s()
-            self.model.head[1] = torch.nn.Linear(768, 2)
-            self.model.eval()
-            self.device = device
-            self.transforms = test_transform
-            self.checkpoint = torch.load(path, map_location=self.device)
-            self.model.load_state_dict(self.checkpoint['model_state_dict'])
-            self.idx2class = {0: 'off', 1: 'on'}
-            self.class2idx = {'off': 0, 'on': 1}
+        # if onnx_path != None:
+        #     pass
+        # else:
+        self.model = mvit_v2_s()
+        self.model.head[1] = torch.nn.Linear(768, 2)
+        self.model.eval()
+        self.device = device
+        self.transforms = test_transform
+        self.checkpoint = torch.load(path, map_location=self.device)
+        self.model.load_state_dict(self.checkpoint['model_state_dict'])
+        self.idx2class = {0: 'off', 1: 'on'}
+        self.class2idx = {'off': 0, 'on': 1}
 
     def predict(self, video: torch.FloatTensor):
         '''
         :param video: должно быть формата [T C H W]
         :return: (pred idx, pred class)
         '''
+        print(video.shape)
         # full_video_tensor = handle_video_path(video_path)
         video = video.to(self.device)
-        video = self.transforms(video)
+        video = self.transforms(video.permute(1, 0, 2, 3))
         pred = torch.argmax(torch.nn.functional.softmax(self.model(video.unsqueeze(0)), dim=-1)).item()
         return pred, self.idx2class[int(pred)]
 
