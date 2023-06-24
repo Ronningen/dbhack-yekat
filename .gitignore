@@ -159,8 +159,13 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 .idea/
 
+# yolo
 /training/yolov8/runs/
 *.pt
 
 # data
 clips
+clips*
+
+# macos
+.DS_Store
