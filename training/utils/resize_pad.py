@@ -43,7 +43,7 @@ def create_resized_image(image, target_size, background_color):
     return background
 
 if __name__ == "__main__":
-
+    # пример использования
     img = cv2.imread(r"C:\Users\annza\Downloads\1.jpg")
     target_size = (224, 224)  # Целевой размер для ресайза
     background_color = (0, 0, 255)  # Цвет пикселя для подложки (BGR)
