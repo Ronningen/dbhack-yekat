@@ -5,6 +5,7 @@
 import os
 import sys
 from functools import wraps
+import json
 
 import cv2
 from PyQt6.QtCore import Qt, QTimer
@@ -16,14 +17,16 @@ from pyqtgraph import PlotWidget, plot
 import pyqtgraph as pg
 
 import pandas as pd
+from ultralytics.yolo.engine.results import Results
 from back.controller import Controller
+# from back.custom_plot import cuctom_plot
 
 
 def check_file_loaded(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         if not self.fname:
-            self.show_popup_window('Сначала загрузите файлы!')
+            self.show_popup_window('Сначала загрузите видео!')
         else:
             return func(self, *args, **kwargs)
     return wrapper
@@ -41,32 +44,53 @@ class MainWindow(QWidget):
         super().__init__()
         self.title = "мониторинг строительных работ"
         self.fname = ''
-        self.InitWindow()
         self.model = Controller(stream=True)
+        self.json = []
+        self.InitWindow()
 
     def InitWindow(self):
         self.setWindowIcon(QIcon())
         self.setWindowTitle('занятость техники')
         vbox = QVBoxLayout()
 
+        # кнопки
         btnOpen = NoFocusButton("Загрузить")
         btnOpen.clicked.connect(self.getFile)
         btnSave = NoFocusButton("Сохранить csv")
         btnSave.clicked.connect(self.saveFile)
-
         topButtons = QHBoxLayout()
         topButtons.addWidget(btnOpen)
         topButtons.addWidget(btnSave)
         vbox.addLayout(topButtons)
 
-        mainWindow = QVBoxLayout()
+        # видеовывод
+
+        # статистика
+        mainWindow = QHBoxLayout()
+
         self.canvas = pg.PlotWidget()
         self.canvas.setBackground('w')
         self.data = self.canvas.plot([], [], pen=pg.mkPen(color=(200, 50, 50), width=2))
         self.canvas.setYRange(0,1)
         self.datay = []
-        mainWindow.addWidget(self.canvas)
+
+        self.onlabel = QLabel()
+        self.onlabel.setWordWrap(True)
+        self.offlabel = QLabel()
+        self.offlabel.setWordWrap(True)
+
+        left = QVBoxLayout()
+        left.addWidget(QLabel(text='работают:'))
+        left.addWidget(self.onlabel)
+        right = QVBoxLayout()
+        right.addWidget(QLabel(text='простаивают:'))
+        right.addWidget(self.offlabel)
+
+        mainWindow.addLayout(left)
+        mainWindow.addLayout(right)
         vbox.addLayout(mainWindow)
+
+        # завязка цикла предсказания на таймер
 
         self.timer = QTimer()
         self.timer.setInterval(1)
@@ -80,22 +104,25 @@ class MainWindow(QWidget):
         cv2.destroyAllWindows()
         exit()
 
-    def show_popup_window(self, error):
+    def show_popup_window(self, text):
         msg = QMessageBox()
         msg.setWindowTitle("Внимание!")
-        msg.setText(error)
+        msg.setText(text)
         msg.exec_()
 
     def updata(self):
         try:
-            activities, boxes, img = self.yielder.__next__()
-            for k, v in activities.items():
-                if len(v)>0: print(v)
+            frameidx, result, activities = self.yielder.__next__()
+            img = result.plot(conf=True, line_width=3, labels=True)
 
-            # self.datay.append(sum(result.values())/len(result))
-            # self.data.setData(range(len(self.datay)), self.datay)
         except StopIteration:
+            tracks = self.model.last_tracks
+            for id in  tracks:
+                event = {'id':id, 'start':tracks[id][0][0], 'end':tracks[id][-1][0]}
+                self.json[-1]['events'].apppend(event)
+
             self.timer.stop()
+            self.show_popup_window('Обработка видео сохранена, вы можете сохранить файл')
 
     def getFile(self, *args, **kwargs):
         self.fname = QFileDialog.getOpenFileNames(self, 'Open file', os.path.expanduser("~/Desktop"), "Video files (*.mp4)")
@@ -106,28 +133,21 @@ class MainWindow(QWidget):
                     self.show_popup_window('Добавлено не видео! можно добавлять только видео.')
                     return
                 else:
+                    self.json.append({'path':file, 'events':[]})
                     self.yielder = self.model.predict(file, show=False)
                     self.timer.start()
-
+                    
         except IndexError as e:
             pass
 
     @check_file_loaded
     def saveFile(self, *args, **kwargs): # TODO
-        pass
-        # savefname = QFileDialog.getSaveFileName(self, "Save file", os.path.expanduser("~/Desktop"), ".csv")
-        # d = {'кликун':0, 'малый':0, 'щипун':0}
-        # n = len(self.fname[0])
-        # df = pd.DataFrame({'фото':['']*n,'вид':['']*n})
-        # for i in range(n):
-        #     pred = self.showingImage(i)
-        #     d[pred] += 1
-        #     df.at[i,'фото'] = self.fname[0][i]
-        #     df.at[i,'вид'] = pred
-        # self.show_popup_window(f"подсчет фото - кликун: {d['кликун']}, малый: {d['малый']}, щипун: {d['щипун']}")
-        # df.to_csv(savefname[0]+'.csv')
-        # self.current = n-1
-
+        if len(self.json) == 0:
+            self.show_popup_window("Загрузите видео и дождитесь окончания обработки!")
+            return
+        
+        savefname = QFileDialog.getSaveFileName(self, "Save file", os.path.expanduser("~/Desktop"), ".json")[0]
+        json.dump(self.json, open(savefname, "w", encoding ='utf8'))
 
 if __name__ == '__main__':
     App = QApplication(sys.argv)

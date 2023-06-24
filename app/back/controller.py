@@ -17,7 +17,7 @@ from .metamodel import Meta, std_predict
 
 ROOT = pathlib.Path(__file__).parent
 BUFF = 16
-CLST = 30
+CLST = 16
 
 
 # def _buff2track(buff) -> dict:
@@ -50,7 +50,7 @@ def _track2clip(track, video, scale=0.1) -> torch.FloatTensor:
     :param video: video to clip [numpy img [H W C], ...]
     :returns: [T C H W] clip
     """
-    track_np = np.fromiter(map(lambda t: t[1], track[:-BUFF]))
+    track_np = np.array(list(map(lambda t: t[1], track[-BUFF:])))
 
     min_x = np.min(track_np[:,0])
     min_y = np.min(track_np[:,1])
@@ -68,7 +68,7 @@ def _track2clip(track, video, scale=0.1) -> torch.FloatTensor:
 
     clip = torch.zeros([BUFF, video[0].shape[2], h_crop, w_crop])
     for i, frame in enumerate(video):
-        clip[i] = np.transpose(frame[min_y:max_y, min_x:max_x], [2,0,1]).copy()
+        clip[i] = torch.from_numpy(np.transpose(frame[min_y:max_y, min_x:max_x], [2,0,1]).copy())
     return clip
 
 
@@ -82,11 +82,14 @@ class Controller():
 
         self.detector = Detector(ROOT.joinpath('../../bin/best.pt'), device)
         self.classifier = Classifier(ROOT.joinpath('../../bin/checkpoint_13.zip'), device)
+
+        self.last_tracks = {}
     
     def predict(self, source, show=False):
         """
             Predict from video
         """
+        self.last_tracks = {}
         tracks = {} # история всех треков за все видео id: [(номер фрейма, бокс, активность), ...]
         tracks_counter = {} # счетчик расчета движения для клипов из трека
         video_buff = [] # TODO: для оптимизации заменить на queue
@@ -102,7 +105,7 @@ class Controller():
 
             # разобрирает детекцию на треки и обрабатывает
             for obj in boxes.tolist():
-                box, id = obj[:4], obj[4]
+                box, id, cls = obj[:4], obj[4], obj[6]
                 if not id: continue
 
                 activity = ''
@@ -120,8 +123,9 @@ class Controller():
                 tracks[id] = tracks.get(id, []) + [(frameidx, box, activity)]
 
             if self.stream:
-                yield activities, boxes, img
+                yield frameidx, result, activities
 
+        self.last_tracks = tracks
         if not self.stream:
             return tracks
     
