@@ -27,7 +27,7 @@ class Classifier():
     def predict(self, video: torch.FloatTensor):
         '''
 
-        :param video_path:
+        :param video:
         :return: (pred idx, pred class)
         '''
         # full_video_tensor = handle_video_path(video_path)
