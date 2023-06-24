@@ -9,9 +9,9 @@ import torch
 import pandas as pd
 from ultralytics.yolo.engine.results import Results
 
-from app.back.detector import Detector
-from app.back.classifier import Classifier
-from app.back.metamodel import Meta, std_predict
+from .detector import Detector
+from .classifier import Classifier
+from .metamodel import Meta, std_predict
 
 
 ROOT = pathlib.Path(__file__).parent
@@ -37,7 +37,7 @@ class Controller():
         if torch.cuda.is_available():
             device='0'
 
-        self.detector = Detector(ROOT.joinpath('bin/best.pt'), device)
+        self.detector = Detector(ROOT.joinpath('../../bin/best.pt'), device)
         # self.classifier = Classifier(ROOT.joinpath('bin/classifier.onnx'), device)
         # self.meta = Meta(ROOT.joinpath('bin/meta.cbm'))
     
