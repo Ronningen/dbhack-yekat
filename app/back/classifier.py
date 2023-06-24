@@ -31,7 +31,7 @@ class Classifier():
         # full_video_tensor = handle_video_path(video_path)
         video = video.to(self.device)
         video = self.transforms(video)
-        pred = torch.argmax(self.model(video.unsqueeze(0)))
+        pred = torch.argmax(self.model(video.unsqueeze(0))).item()
         return pred, self.idx2class[pred]
 
     # def handle_video_path(self, video_path: str) -> torch.FloatTensor:
