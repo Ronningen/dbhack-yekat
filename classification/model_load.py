@@ -8,7 +8,6 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 model.head[1] = torch.nn.Linear(768, 2)
 
-model.load_state_dict(torch.load(r'C:\Users\user\Downloads\model_class (2)', map_location=device))  # path to model state_dict
+model.load_state_dict(torch.load(r'/Users/samedi/Documents/Coding/Hakatons/dbhack-yekat/bin/model_class.zip', map_location=device))  # path to model state_dict
 model.eval()
 print(model)
-#%%

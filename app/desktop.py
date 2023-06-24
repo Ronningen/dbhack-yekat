@@ -87,9 +87,15 @@ class MainWindow(QWidget):
         msg.exec_()
 
     def updata(self):
-        result = self.yielder.__next__()
-        self.datay.append(sum(result.values())/len(result))
-        self.data.setData(range(len(self.datay)), self.datay)
+        try:
+            activities, boxes, img = self.yielder.__next__()
+            for k, v in activities.items():
+                if len(v)>0: print(v)
+
+            # self.datay.append(sum(result.values())/len(result))
+            # self.data.setData(range(len(self.datay)), self.datay)
+        except StopIteration:
+            self.timer.stop()
 
     def getFile(self, *args, **kwargs):
         self.fname = QFileDialog.getOpenFileNames(self, 'Open file', os.path.expanduser("~/Desktop"), "Video files (*.mp4)")
@@ -100,9 +106,8 @@ class MainWindow(QWidget):
                     self.show_popup_window('Добавлено не видео! можно добавлять только видео.')
                     return
                 else:
-                    self.yielder = self.model.predict(file, show=True)
+                    self.yielder = self.model.predict(file, show=False)
                     self.timer.start()
-
 
         except IndexError as e:
             pass
