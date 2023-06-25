@@ -41,15 +41,15 @@ def box_in(box, width, height, margin = 0.05):
     return not (box[0] - width*margin < 0  or box[2] + width*margin > width \
              or box[1] - height*margin < 0 or box[3] + height*margin > height)
 
-def notes_factory(track, total_frames, width, height): #TODO
+def notes_factory(track, total_frames, width, height, luft=6): #TODO
     notes = []
 
-    if track[0][0]<=1:
+    if track[0][0] <= luft:
         notes.append("был в кадре на начало видео")
     elif box_in(track[0][1], width, height):
         notes.append("появился из-за препятствия")
 
-    if track[-1][0]>=total_frames-6:
+    if track[-1][0] >= total_frames - luft:
         notes.append("был в кадре в конце видео")
     elif box_in(track[0][1], width, height):
         notes.append("скрылся за препятствием")
