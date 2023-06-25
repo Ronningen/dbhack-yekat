@@ -76,9 +76,7 @@ class Controller():
     def __init__(self, stream=True) -> None:
         self.stream = stream
 
-        device='cpu'
-        if torch.cuda.is_available():
-            device='cuda:0'
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
         self.detector = Detector(ROOT.joinpath('../../bin/best.pt'), device)
         self.classifier = Classifier(ROOT.joinpath('../../bin/checkpoint_13.zip'), device)
