@@ -168,8 +168,8 @@ class MainWindow(QWidget):
 
             video = cv2.VideoCapture(self.json[-1]['path'])
             total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-            width  = int(video.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH))
-            height = int(video.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT))
+            width  = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
             fps = video.get(cv2.CAP_PROP_FPS)
 
             for id in tracks:
