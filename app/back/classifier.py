@@ -75,11 +75,13 @@ class Classifier():
         :param video: должно быть формата [T C H W]
         :return: (pred idx, pred class)
         '''
-        print(video.shape)
         # full_video_tensor = handle_video_path(video_path)
         video = video.to(self.device)
         video = self.transforms(video.permute(1, 0, 2, 3))
         pred = torch.argmax(torch.nn.functional.softmax(self.model(video.unsqueeze(0)), dim=-1)).to('cpu', copy=True).item()
+
+        print('activity', self.idx2class[int(pred)])
+
         return pred, self.idx2class[int(pred)]
 
     # def handle_video_path(self, video_path: str) -> torch.FloatTensor:

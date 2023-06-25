@@ -37,7 +37,7 @@ NAMES = {0: 'подъёмный кран',
 def frame2time(frame, fps) -> str:
     return str(timedelta(seconds=frame/fps))
 
-def notes_factory(track, total_frames):
+def notes_factory(track, total_frames): #TODO
     notes = []
 
     if track[0][0]<=1:
@@ -45,7 +45,7 @@ def notes_factory(track, total_frames):
     elif True:
         notes.append("появился из-за препятствия")
 
-    if track[-1][0]>=total_frames-2:
+    if track[-1][0]>=total_frames-6:
         notes.append("был в кадре в конце видео")
     elif True:
         notes.append("скрылся за препятствием")
@@ -192,7 +192,7 @@ class MainWindow(QWidget):
             return
         
         savefname = QFileDialog.getSaveFileName(self, "Save file", os.path.expanduser("~/Desktop"), ".json")[0]
-        json.dump(self.json, open(savefname, "w", encoding ='utf8'), indent=4)
+        json.dump(self.json, open(savefname, "w", encoding ='utf8'), ensure_ascii=False, indent=4)
 
 if __name__ == '__main__':
     App = QApplication(sys.argv)
