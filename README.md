@@ -29,7 +29,8 @@ python -m venv .venv
 .venv/Scripts/activate
 pip install -r requirements.txt
 ```
-
+---
+Поместите скаченные веса в папку `app/back/bin` - это самое важное
 # Runtime
 Для запуска десктоп приложения:
 ```
