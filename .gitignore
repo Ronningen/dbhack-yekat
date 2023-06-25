@@ -167,6 +167,7 @@ bin
 # data
 clips
 clips*
+uploads
 
 # macos
 .DS_Store
