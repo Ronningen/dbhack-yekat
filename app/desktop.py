@@ -9,6 +9,7 @@ from functools import wraps
 import json
 from datetime import timedelta
 
+import numpy as np
 import cv2
 from PIL import Image
 from PIL.ImageQt import ImageQt
@@ -81,6 +82,8 @@ class MainWindow(QWidget):
         self.model = Controller(stream=True)
         self.json = []
         self.tmp_activities = {}
+        self.heatmap = None
+        self.a = 0
         self.InitWindow()
 
     def InitWindow(self):
@@ -152,7 +155,10 @@ class MainWindow(QWidget):
             streams current processing frame and accamulates json
         """
         try:
+            # результаты сетей
             frameidx, result, activities = self.yielder.__next__()
+
+            # отрисовка процесса обработки
             for k in activities:
                 if activities[k]:
                     self.tmp_activities[k] = activities[k]
@@ -161,6 +167,20 @@ class MainWindow(QWidget):
                 )[:,:,::-1])
             img.thumbnail((1028, 1000), Image.LANCZOS)
             self.vlabel.setPixmap(QPixmap.fromImage(ImageQt(img).copy()))
+
+            # хитмап
+            if self.heatmap is None:
+                img = result.orig_img
+                fill = img.copy()
+                cv2.rectangle(fill, (0,0), (int(fill.shape[1]), int(fill.shape[0])), (100,0,0), -1, cv2.LINE_AA)  # filled
+                self.heatmap = cv2.addWeighted(fill, 0.9, img, 0.1, 0)
+            else:
+                a = self.a * 0.3
+                for (x1, y1, x2, y2) in result.boxes.xyxy.tolist():
+                    fill = self.heatmap.copy()
+                    cv2.rectangle(fill, (0,0), (int(fill.shape[1]), int(fill.shape[0])), (0,0,0), -1, cv2.LINE_AA)  # filled
+                    cv2.rectangle(fill, (int(x1),int(y1)), (int(x2),int(y2)), (80,180,250), -1, cv2.LINE_AA)
+                    self.heatmap = cv2.addWeighted(fill, a, self.heatmap , 1 - a, 0)
 
         except StopIteration:
             tracks = self.model.last_tracks
@@ -210,6 +230,10 @@ class MainWindow(QWidget):
                 
                 self.json[-1]['events'].append(event)
 
+            img = Image.fromarray(self.heatmap[:,:,::-1])
+            img.thumbnail((1028, 1000), Image.LANCZOS)
+            self.vlabel.setPixmap(QPixmap.fromImage(ImageQt(img).copy()))
+
             self.timer.stop()
             self.show_popup_window('Обработка видео завершена, вы можете сохранить статистику')
 
@@ -222,10 +246,14 @@ class MainWindow(QWidget):
                     self.show_popup_window('Добавлено не видео! можно добавлять только видео.')
                     return
                 else:
+                    self.heatmap = None
                     self.tmp_activities = {}
                     self.json.append({'path': file, 'events': []})
                     self.yielder = self.model.predict(file, show=False)
                     self.timer.start()
+
+                    video = cv2.VideoCapture(self.json[-1]['path'])
+                    self.a = 1/video.get(cv2.CAP_PROP_FRAME_COUNT)
                     
         except IndexError as e:
             pass
