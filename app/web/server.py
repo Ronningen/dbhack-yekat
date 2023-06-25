@@ -212,6 +212,8 @@ if __name__ == "__main__":
     app.router.add_get("/client.mjs", javascript)
     app.router.add_post("/offer", offer)
   
+    print('Attantion! Actually running on http://127.0.0.1:8080')
+
     web.run_app(app,
                 access_log=None,
                 host=args.host,
