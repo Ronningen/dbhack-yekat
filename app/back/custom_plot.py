@@ -2,6 +2,7 @@ from copy import deepcopy
 
 import numpy as np
 from PIL.Image import Image
+import cv2
 import torch
 
 from ultralytics.yolo.data.augment import LetterBox
@@ -14,15 +15,10 @@ def cuctom_plot(
         conf=True,
         line_width=None,
         font_size=None,
-        font='Arial.ttf',
-        pil=False,
-        img=None,
-        img_gpu=None,
-        kpt_line=True,
         labels=True,
         boxes=True,
-        masks=True,
-        probs=True,
+        alpha=0.5,
+        states={},
         **kwargs  # deprecated args TODO: remove support in 8.2
 ):
     """
@@ -57,39 +53,39 @@ def cuctom_plot(
         assert type(line_width) == int, '`line_width` should be of int type, i.e, line_width=3'
 
     names = self.names
-    annotator = Annotator(deepcopy(self.orig_img if img is None else img),
-                            line_width,
-                            font_size,
-                            font,
-                            pil,
-                            example=names)
     pred_boxes, show_boxes = self.boxes, boxes
-    pred_masks, show_masks = self.masks, masks
-    pred_probs, show_probs = self.probs, probs
-    keypoints = self.keypoints
-    if pred_masks and show_masks:
-        if img_gpu is None:
-            img = LetterBox(pred_masks.shape[1:])(image=annotator.result())
-            img_gpu = torch.as_tensor(img, dtype=torch.float16, device=pred_masks.data.device).permute(
-                2, 0, 1).flip(0).contiguous() / 255
-        idx = pred_boxes.cls if pred_boxes else range(len(pred_masks))
-        annotator.masks(pred_masks.data, colors=[colors(x, True) for x in idx], im_gpu=img_gpu)
 
     if pred_boxes and show_boxes:
         for d in reversed(pred_boxes):
+
             c, conf, id = int(d.cls), float(d.conf) if conf else None, None if d.id is None else int(d.id.item())
-            name = ('' if id is None else f'id:{id} ') + names[c]
+
+            name = ('' if id is None else f'{id}, ') + names[c] \
+                + ('' if states.get(id, None) is None else f', {states[id]}')
             label = (f'{name} {conf:.2f}' if conf else name) if labels else None
-            annotator.box_label(d.xyxy.squeeze(), label, color=colors(c, True))
 
-    if pred_probs is not None and show_probs:
-        n5 = min(len(names), 5)
-        top5i = pred_probs.argsort(0, descending=True)[:n5].tolist()  # top 5 indices
-        text = f"{', '.join(f'{names[j] if names else j} {pred_probs[j]:.2f}' for j in top5i)}, "
-        annotator.text((32, 32), text, txt_color=(255, 255, 255))  # TODO: allow setting colors
+            box = d.xyxy.squeeze()
+            color = colors(c, True)
 
-    if keypoints is not None:
-        for k in reversed(keypoints):
-            annotator.kpts(k, self.orig_shape, kpt_line=kpt_line)
 
-    return annotator.result()
+            p1, p2 = (int(box[0]), int(box[1])), (int(box[2]), int(box[3]))
+            cv2.rectangle(self.orig_img, p1, p2, color, thickness=line_width, lineType=cv2.LINE_AA)
+            if label:
+                tf = max(line_width - 1, 1)  # font thickness
+                w, h = cv2.getTextSize(label, 0, fontScale=font_size, thickness=tf)[0]  # text width, height
+                outside = p1[1] - h >= 3
+                p2 = p1[0] + w, p1[1] - h - 3 if outside else p1[1] + h + 3
+
+                overlay = self.orig_img.copy()
+                cv2.rectangle(overlay, p1, p2, color, -1, cv2.LINE_AA)  # filled
+                self.orig_img = cv2.addWeighted(overlay, alpha, self.orig_img, 1 - alpha, 0)
+
+                cv2.putText(self.orig_img,
+                            label, (p1[0], p1[1] - 2 if outside else p1[1] + h + 2),
+                            0,
+                            font_size,
+                            (255, 255, 255),
+                            thickness=tf,
+                            lineType=cv2.LINE_AA)
+
+    return np.asarray(self.orig_img)

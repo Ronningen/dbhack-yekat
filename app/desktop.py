@@ -77,6 +77,7 @@ class MainWindow(QWidget):
         self.fname = ''
         self.model = Controller(stream=True)
         self.json = []
+        self.tmp_activities = {}
         self.InitWindow()
 
     def InitWindow(self):
@@ -85,9 +86,9 @@ class MainWindow(QWidget):
         vbox = QVBoxLayout()
 
         # кнопки
-        btnOpen = NoFocusButton("Загрузить")
+        btnOpen = NoFocusButton("Загрузить видео")
         btnOpen.clicked.connect(self.getFile)
-        btnSave = NoFocusButton("Сохранить .json")
+        btnSave = NoFocusButton("Сохранить в .json")
         btnSave.clicked.connect(self.saveFile)
         topButtons = QHBoxLayout()
         topButtons.addWidget(btnOpen)
@@ -95,11 +96,11 @@ class MainWindow(QWidget):
         vbox.addLayout(topButtons)
 
         # видеовывод
-        self.vlabel = QLabel()
+        self.vlabel = QLabel(text='Загрузите видео')
         vbox.addWidget(self.vlabel)
 
         # статистика
-        mainWindow = QHBoxLayout()
+        # mainWindow = QHBoxLayout()
 
         # self.canvas = pg.PlotWidget()
         # self.canvas.setBackground('w')
@@ -107,21 +108,21 @@ class MainWindow(QWidget):
         # self.canvas.setYRange(0,1)
         # self.datay = []
 
-        self.onlabel = QLabel()
-        self.onlabel.setWordWrap(True)
-        self.offlabel = QLabel()
-        self.offlabel.setWordWrap(True)
+        # self.onlabel = QLabel()
+        # self.onlabel.setWordWrap(True)
+        # self.offlabel = QLabel()
+        # self.offlabel.setWordWrap(True)
 
-        left = QVBoxLayout()
-        left.addWidget(QLabel(text='работают:'))
-        left.addWidget(self.onlabel)
-        right = QVBoxLayout()
-        right.addWidget(QLabel(text='простаивают:'))
-        right.addWidget(self.offlabel)
+        # left = QVBoxLayout()
+        # left.addWidget(QLabel(text='работают:'))
+        # left.addWidget(self.onlabel)
+        # right = QVBoxLayout()
+        # right.addWidget(QLabel(text='простаивают:'))
+        # right.addWidget(self.offlabel)
 
-        mainWindow.addLayout(left)
-        mainWindow.addLayout(right)
-        vbox.addLayout(mainWindow)
+        # mainWindow.addLayout(left)
+        # mainWindow.addLayout(right)
+        # vbox.addLayout(mainWindow)
 
         # завязка цикла предсказания на таймер
 
@@ -146,8 +147,12 @@ class MainWindow(QWidget):
     def updata(self):
         try:
             frameidx, result, activities = self.yielder.__next__()
+            for k in activities:
+                if activities[k]:
+                    self.tmp_activities[k] = activities[k]
             img = Image.fromarray(cuctom_plot(
-                result, conf=True, line_width=4, labels=True, boxes=True, font_size=5)[:,:,::-1])
+                result, conf=False, line_width=4, labels=True, boxes=True, font_size=1, states=self.tmp_activities
+                )[:,:,::-1])
             img.thumbnail((1028, 1000), Image.LANCZOS)
             self.vlabel.setPixmap(QPixmap.fromImage(ImageQt(img).copy()))
 
@@ -160,9 +165,9 @@ class MainWindow(QWidget):
             fps = video.get(cv2.CAP_PROP_FPS)
 
             for id in tracks:
-                event = {'id': id, 'class': NAMES[max(clss[id], key=clss[id].get)], 
+                event = {'id': int(id), 'class': NAMES[max(clss[id], key=clss[id].get)], 
                          'start': frame2time(tracks[id][0][0], fps), 'end': frame2time(tracks[id][-1][0], fps), 
-                         'notes': notes_factory(tracks[id], total_frames), 'activity events':[], 'trajectory_xy':[]}
+                         'notes': notes_factory(tracks[id], total_frames), 'work events':[], 'trajectory_xy':[]}
                 
                 state = ''
                 for frameidx, box, activity in tracks[id]:
@@ -172,20 +177,20 @@ class MainWindow(QWidget):
                         if activity == 'on': 
                             # если первая активность - работа, то начало - 0 кадр
                             time = frame2time(frameidx if state else 0, fps)
-                            event['activity events'].append({'start work':time})
+                            event['work events'].append({'start work': time})
                         # если до этого работал - записать что перестал
                         elif state == 'on':
-                            event['activity events'][-1]['stop work'] = frame2time(frameidx, fps)
+                            event['work events'][-1]['stop work'] = frame2time(frameidx, fps)
                         # после записей обновляю состояние
                         state = activity
                 # если к концу видео не остановилась работа - считаем что остановилась на последнем кадре
                 if state == 'on':
-                    event['activity events'][-1]['stop work'] = frame2time(total_frames, fps)
+                    event['work events'][-1]['stop work'] = frame2time(total_frames, fps)
 
                 self.json[-1]['events'].append(event)
 
             self.timer.stop()
-            self.show_popup_window('Обработка видео завершена, вы можете сохранить файл')
+            self.show_popup_window('Обработка видео завершена, вы можете сохранить статистику')
 
     def getFile(self, *args, **kwargs):
         self.fname = QFileDialog.getOpenFileNames(self, 'Open file', os.path.expanduser("~/Desktop"), "Video files (*.mp4)")
@@ -196,7 +201,8 @@ class MainWindow(QWidget):
                     self.show_popup_window('Добавлено не видео! можно добавлять только видео.')
                     return
                 else:
-                    self.json.append({'path':file, 'events':[]})
+                    self.tmp_activities = {}
+                    self.json.append({'path': file, 'events': []})
                     self.yielder = self.model.predict(file, show=False)
                     self.timer.start()
                     
