@@ -64,6 +64,7 @@ class Classifier():
         self.model.head[1] = torch.nn.Linear(768, 2)
         self.model.eval()
         self.device = device
+        self.model = self.model.to(device)
         self.transforms = test_transform
         self.checkpoint = torch.load(path, map_location=self.device)
         self.model.load_state_dict(self.checkpoint['model_state_dict'])
@@ -76,9 +77,11 @@ class Classifier():
         :return: (pred idx, pred class)
         '''
         # full_video_tensor = handle_video_path(video_path)
-        video = video.to(self.device)
         video = self.transforms(video.permute(1, 0, 2, 3))
-        pred = torch.argmax(torch.nn.functional.softmax(self.model(video.unsqueeze(0)), dim=-1)).to('cpu', copy=True).item()
+        video = video.to(self.device)
+        with torch.no_grad():
+            pred = torch.argmax(torch.nn.functional.softmax(self.model(video.unsqueeze(0)), dim=-1))\
+                .detach().to('cpu', copy=True).item()
 
         print('activity', self.idx2class[int(pred)])
         return pred, self.idx2class[int(pred)]
