@@ -146,7 +146,8 @@ class MainWindow(QWidget):
     def updata(self):
         try:
             frameidx, result, activities = self.yielder.__next__()
-            img = Image.fromarray(cuctom_plot(result, conf=True, line_width=4, labels=True, boxes=True)[:,:,::-1])
+            img = Image.fromarray(cuctom_plot(
+                result, conf=True, line_width=4, labels=True, boxes=True, font_size=5)[:,:,::-1])
             img.thumbnail((1028, 1000), Image.LANCZOS)
             self.vlabel.setPixmap(QPixmap.fromImage(ImageQt(img).copy()))
 
@@ -161,14 +162,30 @@ class MainWindow(QWidget):
             for id in tracks:
                 event = {'id': id, 'class': NAMES[max(clss[id], key=clss[id].get)], 
                          'start': frame2time(tracks[id][0][0], fps), 'end': frame2time(tracks[id][-1][0], fps), 
-                         'notes': notes_factory(tracks[id], total_frames), 'activity events':[], 'trajectory':[]}
+                         'notes': notes_factory(tracks[id], total_frames), 'activity events':[], 'trajectory_xy':[]}
+                
+                state = ''
                 for frameidx, box, activity in tracks[id]:
-                    event['trajectory'].append([(box[0]+box[2])/2, (box[1]+box[3])/2])
+                    event['trajectory_xy'].append([(box[0]+box[2])/2, (box[1]+box[3])/2])
+                    # если изменилась активность - меняю состояние и записываю
+                    if activity and state != activity:
+                        if activity == 'on': 
+                            # если первая активность - работа, то начало - 0 кадр
+                            time = frame2time(frameidx if state else 0, fps)
+                            event['activity events'].append({'start work':time})
+                        # если до этого работал - записать что перестал
+                        elif state == 'on':
+                            event['activity events'][-1]['stop work'] = frame2time(frameidx, fps)
+                        # после записей обновляю состояние
+                        state = activity
+                # если к концу видео не остановилась работа - считаем что остановилась на последнем кадре
+                if state == 'on':
+                    event['activity events'][-1]['stop work'] = frame2time(total_frames, fps)
 
                 self.json[-1]['events'].append(event)
 
             self.timer.stop()
-            self.show_popup_window('Обработка видео сохранена, вы можете сохранить файл')
+            self.show_popup_window('Обработка видео завершена, вы можете сохранить файл')
 
     def getFile(self, *args, **kwargs):
         self.fname = QFileDialog.getOpenFileNames(self, 'Open file', os.path.expanduser("~/Desktop"), "Video files (*.mp4)")
