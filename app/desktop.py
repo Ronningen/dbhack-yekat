@@ -3,6 +3,7 @@
 """
 
 import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 import sys
 from functools import wraps
 import json
@@ -146,7 +147,7 @@ class MainWindow(QWidget):
         try:
             frameidx, result, activities = self.yielder.__next__()
             img = Image.fromarray(cuctom_plot(result, conf=True, line_width=4, labels=True, boxes=True)[:,:,::-1])
-            img.thumbnail((1028, 1000), Image.ANTIALIAS)
+            img.thumbnail((1028, 1000), Image.LANCZOS)
             self.vlabel.setPixmap(QPixmap.fromImage(ImageQt(img).copy()))
 
         except StopIteration:
