@@ -1,5 +1,5 @@
 """
-    GUI scrypt
+    GUI and json forming scrypt
 """
 
 import os
@@ -20,7 +20,6 @@ from PyQt6.QtGui import QPixmap, QIcon, QFont, QImage
 # from pyqtgraph import PlotWidget, plot
 # import pyqtgraph as pg
 
-import pandas as pd
 from ultralytics.yolo.engine.results import Results
 from back.controller import Controller
 from back.custom_plot import cuctom_plot
@@ -35,20 +34,24 @@ NAMES = {0: 'подъёмный кран',
          6: 'мини погрузчик', 
          7: 'холодный фрез'}
 
-def frame2time(frame, fps) -> str:
+def frame2time(frame, fps):
     return str(timedelta(seconds=frame/fps))
 
-def notes_factory(track, total_frames): #TODO
+def box_in(box, width, height, margin = 0.05):
+    return not (box[0] - width*margin < 0  or box[2] + width*margin > width \
+             or box[1] - height*margin < 0 or box[3] + height*margin > height)
+
+def notes_factory(track, total_frames, width, height): #TODO
     notes = []
 
     if track[0][0]<=1:
         notes.append("был в кадре на начало видео")
-    elif True:
+    elif box_in(track[0][1], width, height):
         notes.append("появился из-за препятствия")
 
     if track[-1][0]>=total_frames-6:
         notes.append("был в кадре в конце видео")
-    elif True:
+    elif box_in(track[0][1], width, height):
         notes.append("скрылся за препятствием")
 
     return notes
@@ -145,6 +148,9 @@ class MainWindow(QWidget):
         msg.exec()
 
     def updata(self):
+        """
+            streams current processing frame and accamulates json
+        """
         try:
             frameidx, result, activities = self.yielder.__next__()
             for k in activities:
@@ -162,12 +168,20 @@ class MainWindow(QWidget):
 
             video = cv2.VideoCapture(self.json[-1]['path'])
             total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+            width  = int(video.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH))
+            height = int(video.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT))
             fps = video.get(cv2.CAP_PROP_FPS)
 
             for id in tracks:
-                event = {'id': int(id), 'class': NAMES[max(clss[id], key=clss[id].get)], 
-                         'start': frame2time(tracks[id][0][0], fps), 'end': frame2time(tracks[id][-1][0], fps), 
-                         'notes': notes_factory(tracks[id], total_frames), 'work events':[], 'trajectory_xy':[]}
+                event = {'id': int(id), 
+                         'class': NAMES[max(clss[id], key=clss[id].get)],
+                         'start': frame2time(tracks[id][0][0], fps), 
+                         'end': frame2time(tracks[id][-1][0], fps), 
+                         'notes': notes_factory(tracks[id], total_frames, width, height),  
+                         'summative work time': frame2time(0, fps), 
+                         'percentage working': 0,
+                         'work events':[], 
+                         'trajectory_xy':[]}
                 
                 state = ''
                 for frameidx, box, activity in tracks[id]:
@@ -176,17 +190,24 @@ class MainWindow(QWidget):
                     if activity and state != activity:
                         if activity == 'on': 
                             # если первая активность - работа, то начало - 0 кадр
-                            time = frame2time(frameidx if state else 0, fps)
-                            event['work events'].append({'start work': time})
+                            event['work events'].append({'start work': frameidx if state else 0})
                         # если до этого работал - записать что перестал
                         elif state == 'on':
-                            event['work events'][-1]['stop work'] = frame2time(frameidx, fps)
+                            event['work events'][-1]['stop work'] = frameidx
                         # после записей обновляю состояние
                         state = activity
                 # если к концу видео не остановилась работа - считаем что остановилась на последнем кадре
                 if state == 'on':
-                    event['work events'][-1]['stop work'] = frame2time(total_frames, fps)
-
+                    event['work events'][-1]['stop work'] = total_frames
+                # подсчет времени работы
+                work_sum = 0
+                for work_event in event['work events']:
+                    work_sum += work_event['stop work'] - work_event['start work']
+                    work_event['stop work'] = frame2time(work_event['stop work'], fps)
+                    work_event['start work'] = frame2time(work_event['start work'], fps)
+                event['summative work time'] = frame2time(work_sum, fps)
+                event['percentage working'] = int(work_sum/total_frames*100)
+                
                 self.json[-1]['events'].append(event)
 
             self.timer.stop()
@@ -210,12 +231,14 @@ class MainWindow(QWidget):
             pass
 
     @check_file_loaded
-    def saveFile(self, *args, **kwargs): # TODO
+    def saveFile(self, *args, **kwargs):
         if len(self.json) == 0:
             self.show_popup_window("Загрузите видео и дождитесь окончания обработки!")
             return
         
         savefname = QFileDialog.getSaveFileName(self, "Save file", os.path.expanduser("~/Desktop"), ".json")[0]
+        if not savefname.endswith('.json'):
+            savefname += '.json'
         json.dump(self.json, open(savefname, "w", encoding ='utf8'), ensure_ascii=False, indent=4)
 
 if __name__ == '__main__':

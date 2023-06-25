@@ -79,7 +79,7 @@ class Controller():
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
         self.detector = Detector(ROOT.joinpath('bin/best.pt'), device)
-        self.classifier = Classifier(ROOT.joinpath('bin/checkpoint_13.zip'), device)
+        self.classifier = Classifier(ROOT.joinpath('bin/checkpoint_19.zip'), device)
 
         self.last_tracks = {}
         self.last_tracks_cls = {}
