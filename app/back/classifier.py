@@ -67,6 +67,7 @@ class Classifier():
         self.transforms = test_transform
         self.checkpoint = torch.load(path, map_location=self.device)
         self.model.load_state_dict(self.checkpoint['model_state_dict'])
+        self.model = self.model.to(device)
         self.idx2class = {0: 'off', 1: 'on'}
         self.class2idx = {'off': 0, 'on': 1}
 
@@ -77,9 +78,11 @@ class Classifier():
         '''
         print(video.shape)
         # full_video_tensor = handle_video_path(video_path)
-        video = video.to(self.device)
         video = self.transforms(video.permute(1, 0, 2, 3))
-        pred = torch.argmax(torch.nn.functional.softmax(self.model(video.unsqueeze(0)), dim=-1)).to('cpu').item()
+
+        video = video.to(self.device)
+        with torch.no_grad():
+            pred = torch.argmax(torch.nn.functional.softmax(self.model(video.unsqueeze(0)), dim=-1)).detach().to('cpu').item()
         return pred, self.idx2class[int(pred)]
 
     # def handle_video_path(self, video_path: str) -> torch.FloatTensor:

@@ -78,8 +78,8 @@ class Controller():
 
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-        self.detector = Detector(ROOT.joinpath('../../bin/best.pt'), device)
-        self.classifier = Classifier(ROOT.joinpath('../../bin/checkpoint_13.zip'), device)
+        self.detector = Detector(ROOT.joinpath('bin/best.pt'), device)
+        self.classifier = Classifier(ROOT.joinpath('bin/checkpoint_13.zip'), device)
 
         self.last_tracks = {}
         self.last_tracks_cls = {}
@@ -116,7 +116,9 @@ class Controller():
                     tracks_counter[id] = c
                 else:
                     # предсказать активность для трека
-                    _, activity = self.classifier.predict(_track2clip(tracks[id], video_buff))
+                    clip = _track2clip(tracks[id], video_buff)
+                    _, activity = self.classifier.predict(clip)
+
                     # сбросить счетчик
                     tracks_counter[id] = 0 
                 # положить в трек (номер фрейма, бокс)
