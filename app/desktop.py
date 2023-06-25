@@ -16,8 +16,8 @@ from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, \
     QFileDialog, QLabel, QHBoxLayout, QMessageBox
 from PyQt6.QtGui import QPixmap, QIcon, QFont, QImage
 
-from pyqtgraph import PlotWidget, plot
-import pyqtgraph as pg
+# from pyqtgraph import PlotWidget, plot
+# import pyqtgraph as pg
 
 import pandas as pd
 from ultralytics.yolo.engine.results import Results
@@ -35,7 +35,7 @@ NAMES = {0: 'подъёмный кран',
          7: 'холодный фрез'}
 
 def frame2time(frame, fps) -> str:
-    return str(frame/fps)
+    return str(timedelta(seconds=frame/fps))
 
 def notes_factory(track, total_frames):
     notes = []
@@ -100,11 +100,11 @@ class MainWindow(QWidget):
         # статистика
         mainWindow = QHBoxLayout()
 
-        self.canvas = pg.PlotWidget()
-        self.canvas.setBackground('w')
-        self.data = self.canvas.plot([], [], pen=pg.mkPen(color=(200, 50, 50), width=2))
-        self.canvas.setYRange(0,1)
-        self.datay = []
+        # self.canvas = pg.PlotWidget()
+        # self.canvas.setBackground('w')
+        # self.data = self.canvas.plot([], [], pen=pg.mkPen(color=(200, 50, 50), width=2))
+        # self.canvas.setYRange(0,1)
+        # self.datay = []
 
         self.onlabel = QLabel()
         self.onlabel.setWordWrap(True)
