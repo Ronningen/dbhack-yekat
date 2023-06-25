@@ -25,8 +25,32 @@ from back.controller import Controller
 from back.custom_plot import cuctom_plot
 
 
+NAMES = {0: 'подъёмный кран', 
+         1: 'экскаватор', 
+         2: 'грузовой автомобиль', 
+         3: 'трактор', 
+         4: 'автобетоносмеситель', 
+         5: 'асфальтоукладчик', 
+         6: 'мини погрузчик', 
+         7: 'холодный фрез'}
+
 def frame2time(frame: int, *args, **kwargs) -> str:
     return str(frame)
+
+def notes_factory(track, dur):
+    notes = []
+
+    if track[0][0]<=1:
+        notes.append("был в кадре на начало видео")
+    elif True:
+        notes.append("появился из-за препятствия")
+
+    if track[-1][0]>=dur-2:
+        notes.append("был в кадре в конце видео")
+    elif True:
+        notes.append("скрылся за препятствием")
+
+    return notes
 
 
 def check_file_loaded(func):
@@ -37,7 +61,6 @@ def check_file_loaded(func):
         else:
             return func(self, *args, **kwargs)
     return wrapper
-
 
 class NoFocusButton(QPushButton):
     def __init__(self, *args, **kwargs):
@@ -129,10 +152,13 @@ class MainWindow(QWidget):
         except StopIteration:
             tracks = self.model.last_tracks
             clss = self.model.last_tracks_cls
+
+            video = cv2.VideoCapture(self.json[-1]['path'])
+
             for id in tracks:
-                event = {'id': id, 'class': max(clss[id], key=clss[id].get), 
+                event = {'id': id, 'class': NAMES[max(clss[id], key=clss[id].get)], 
                          'start': frame2time(tracks[id][0][0]), 'end': frame2time(tracks[id][-1][0]), 
-                         'notes':[], 'activity events':[], 'trajectory':[]}
+                         'notes': notes_factory(tracks[id]), 'activity events':[], 'trajectory':[]}
                 for frameidx, box, activity in tracks[id]:
                     event['trajectory'].append([(box[0]+box[2])/2, (box[1]+box[3])/2])
 
