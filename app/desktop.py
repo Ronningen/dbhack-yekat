@@ -6,7 +6,7 @@ import os
 import sys
 from functools import wraps
 import json
-import operator
+from datetime import timedelta
 
 import cv2
 from PIL import Image
@@ -34,10 +34,10 @@ NAMES = {0: 'подъёмный кран',
          6: 'мини погрузчик', 
          7: 'холодный фрез'}
 
-def frame2time(frame: int, *args, **kwargs) -> str:
-    return str(frame)
+def frame2time(frame, fps) -> str:
+    return str(frame/fps)
 
-def notes_factory(track, dur):
+def notes_factory(track, total_frames):
     notes = []
 
     if track[0][0]<=1:
@@ -45,7 +45,7 @@ def notes_factory(track, dur):
     elif True:
         notes.append("появился из-за препятствия")
 
-    if track[-1][0]>=dur-2:
+    if track[-1][0]>=total_frames-2:
         notes.append("был в кадре в конце видео")
     elif True:
         notes.append("скрылся за препятствием")
@@ -147,18 +147,20 @@ class MainWindow(QWidget):
             frameidx, result, activities = self.yielder.__next__()
             img = Image.fromarray(cuctom_plot(result, conf=True, line_width=4, labels=True, boxes=True)[:,:,::-1])
             img.thumbnail((1028, 1000), Image.ANTIALIAS)
-            self.vlabel.setPixmap(QPixmap.fromImage(ImageQt(img)))
+            self.vlabel.setPixmap(QPixmap.fromImage(ImageQt(img).copy()))
 
         except StopIteration:
             tracks = self.model.last_tracks
             clss = self.model.last_tracks_cls
 
             video = cv2.VideoCapture(self.json[-1]['path'])
+            total_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+            fps = video.get(cv2.CAP_PROP_FPS)
 
             for id in tracks:
                 event = {'id': id, 'class': NAMES[max(clss[id], key=clss[id].get)], 
-                         'start': frame2time(tracks[id][0][0]), 'end': frame2time(tracks[id][-1][0]), 
-                         'notes': notes_factory(tracks[id]), 'activity events':[], 'trajectory':[]}
+                         'start': frame2time(tracks[id][0][0], fps), 'end': frame2time(tracks[id][-1][0], fps), 
+                         'notes': notes_factory(tracks[id], total_frames), 'activity events':[], 'trajectory':[]}
                 for frameidx, box, activity in tracks[id]:
                     event['trajectory'].append([(box[0]+box[2])/2, (box[1]+box[3])/2])
 
