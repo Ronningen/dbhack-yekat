@@ -8,12 +8,15 @@ import time
 import uuid
 import random
 
-import cv2
 import streamlink
 from aiohttp import web
 from aiortc import MediaStreamTrack, RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaPlayer, MediaRelay
 from av import VideoFrame
+from ultralytics.yolo.engine.results import Results
+
+from back.controller import Controller
+from back.custom_plot import cuctom_plot
 
 ROOT = os.path.dirname(__file__)
 
@@ -33,6 +36,7 @@ class VideoTransformTrack(MediaStreamTrack):
         super().__init__()
         self.track = track
         self.start_time = int(time.time())
+        self.model = Controller()
 
     @property
     def track_id(self):
@@ -49,14 +53,8 @@ class VideoTransformTrack(MediaStreamTrack):
         frame = await self.track.recv()
         img = frame.to_ndarray(format="bgr24")
 
-        cv2.rectangle(img, (100, 170), (380, 230), (150,150,150), -1, cv2.LINE_AA)
-        cv2.putText(img,
-                            "processing video", (100, 200),
-                            0,
-                            1,
-                            (0, 0, 0),
-                            thickness=3,
-                            lineType=cv2.LINE_AA)
+        _, result, _ = self.model.predict(img).__next__()
+        img = cuctom_plot(result, conf=False, line_width=4, labels=True, boxes=True, font_size=1)
 
         new_frame = VideoFrame.from_ndarray(img, format="bgr24")
         new_frame.pts = frame.pts
@@ -104,8 +102,13 @@ async def offer(request):
 
     streams = streamlink.streams(params["stream_link"])  # type: ignore
     stream_url = streams["best"]
-    player = MediaPlayer(stream_url.args["url"])
+    fake_path = params["file_path"]
 
+    if fake_path:
+        path = os.path.join('uploads', fake_path.split("\\")[-1]) # TODO: potentialy not works on Windows
+        player = MediaPlayer(path)
+    else:
+        player = MediaPlayer(stream_url.args["url"])
 
     def log_info(msg, *args):
         logger.info(pc_id + " " + msg, *args)
@@ -157,13 +160,13 @@ async def offer(request):
 
 
 async def on_shutdown(app):
-
     # close peer connections
     coros = [pc.close() for pc in pcs]
     await asyncio.gather(*coros)
     pcs.clear()
 
-async def handle_upload(request):
+
+async def handle_upload(request : web.Request):
     reader = await request.multipart()  # создаем объект MultipartReader
     field = await reader.next()  # извлекаем первое поле из объекта MultipartReader
 
@@ -175,17 +178,15 @@ async def handle_upload(request):
 
         # сохраняем файл в папку uploads
         with open(os.path.join('uploads', field.filename), 'wb') as f:
-            while True:
+            while not field.at_eof():
                 # читаем файл частями и записываем его в файловый объект
                 chunk = await field.read_chunk()
                 if not chunk:
                     break
                 f.write(chunk)
+    
+    return web.Response(text='upload handled')
 
-        return web.Response(text=f'File {field.filename} has been uploaded')
-    else:
-        # если поле не является файлом, возвращаем сообщение об ошибке
-        return web.Response(text='No file uploaded or invalid field name')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -195,7 +196,7 @@ if __name__ == "__main__":
         "--port", type=int, default=8080, help="Port for HTTP server (default: 8080)"
     )
     parser.add_argument(
-        "--host", default="0.0.0.0", help="Host for HTTP server (default: 0.0.0.0)"
+        "--host", default="127.0.0.1", help="Host for HTTP server (default: 127.0.0.1)"
     )
     parser.add_argument("--verbose", "-v", action="count")
     args = parser.parse_args()
@@ -206,13 +207,11 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.INFO)
 
     app = web.Application()
-    app.add_routes([web.post('/upload', handle_upload)])
     app.on_shutdown.append(on_shutdown)
     app.router.add_get("/", index)
     app.router.add_get("/client.mjs", javascript)
     app.router.add_post("/offer", offer)
-  
-    print('Attantion! Actually running on http://127.0.0.1:8080')
+    app.router.add_post("/upload", handle_upload)
 
     web.run_app(app,
                 access_log=None,

@@ -1,0 +1,113 @@
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ДатаСтрой</title>
+    <style>
+        #main {
+            margin-left: 15%;
+            margin-right: 15%;
+            margin-top: 2%;
+            padding: 10px;
+            padding-top: 0px;
+            border: 2px solid black;
+        }
+
+        button {
+            padding: 8px 16px;
+        }
+
+        pre {
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        video {
+            width: 100%;
+        }
+
+        .option {
+            margin-bottom: 8px;
+        }
+
+        #input-stream-link {
+            width: 90%;
+        }
+
+        #container {
+            font-size: 0;
+        }
+
+        #left,
+        #right {
+            display: inline-block;
+            font-size: 13px;
+            width: 50%;
+            margin-bottom: 16px;
+        }
+
+        #start,
+        #stop {
+            width: 100%;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <div id="main">
+
+        <form id="container" enctype="multipart/form-data" action="#" method="post">
+            <div id="left">
+                <h2>Указать ссылку:</h2>
+                <input type="text" name="stream-link" value="https://www.youtube.com/watch?v=HMNa_DAVH2U"
+                    id="input-stream-link">
+            </div>
+            <div id="right">
+                <h2>Загрузить видео:</h2>
+                <input type="file" class="file" name="file" id="input-file" accept="video/*" -->
+            </div>
+
+            <button id="start" type="submit">
+                Start
+            </button>
+            <button id="stop" style="display: none" onclick="stop()">
+                Stop
+            </button>
+        </form>
+
+        <div id="media" style="display: none">
+            <audio id="audio" autoplay="true"></audio>
+            <video id="video" autoplay="true" playsinline="true"></video>
+        </div>
+
+    </div>
+
+    <div style="display: none">
+        <h2>Data channel</h2>
+        <pre id="data-channel" style="height: 200px;"></pre>
+
+        <h2>State</h2>
+        <p>
+            ICE gathering state: <span id="ice-gathering-state"></span>
+        </p>
+        <p>
+            ICE connection state: <span id="ice-connection-state"></span>
+        </p>
+        <p>
+            Signaling state: <span id="signaling-state"></span>
+        </p>
+
+        <h3>Offer</h3>
+        <pre id="offer-sdp"></pre>
+
+        <h3>Answer</h3>
+        <pre id="answer-sdp"></pre>
+    </div>
+
+    <script src="client.mjs"></script>
+</body>
+
+</html>

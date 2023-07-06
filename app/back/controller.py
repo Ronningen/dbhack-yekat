@@ -1,7 +1,6 @@
 """
     Scrypt to control all models and provide results to the app
 """
-import lap
 import pathlib
 import os
 
@@ -17,31 +16,7 @@ from .metamodel import Meta, std_predict
 
 ROOT = pathlib.Path(__file__).parent
 BUFF = 16
-CLST = 16
-
-
-# def _buff2track(buff) -> dict:
-#     """
-#     :param buff: list of data in frames -
-#         [
-#             (yolo.results.boxes.data, orig_img),
-#             ...
-#         ]
-#     :return: dict with track data -
-#         { 
-#             id: [(box, orig_img), ...], 
-#             ...
-#         }
-#     """
-#     tracks = {}
-#     for sample in buff:
-#         for obj in sample[0].tolist():
-#             # xyxy img
-#             id = obj[4]
-#             if id:
-#                 box = obj[:4]
-#                 tracks[id] = tracks.get(id,[]) + [ (box, sample[1]) ]
-#     return tracks
+CLST = 36
 
 
 def _track2clip(track, video, scale=0.1) -> torch.FloatTensor:
@@ -78,8 +53,8 @@ class Controller():
 
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-        self.detector = Detector(ROOT.joinpath('bin/best.pt'), device)
-        self.classifier = Classifier(ROOT.joinpath('bin/checkpoint_19.zip'), device)
+        self.detector = Detector(ROOT.joinpath('bin/nano.pt'), device)
+        self.classifier = Classifier(ROOT.joinpath('bin/classify.zip'), device)
 
         self.last_tracks = {}
         self.last_tracks_cls = {}

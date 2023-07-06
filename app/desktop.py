@@ -105,33 +105,7 @@ class MainWindow(QWidget):
         self.vlabel = QLabel(text='Загрузите видео')
         vbox.addWidget(self.vlabel)
 
-        # статистика
-        # mainWindow = QHBoxLayout()
-
-        # self.canvas = pg.PlotWidget()
-        # self.canvas.setBackground('w')
-        # self.data = self.canvas.plot([], [], pen=pg.mkPen(color=(200, 50, 50), width=2))
-        # self.canvas.setYRange(0,1)
-        # self.datay = []
-
-        # self.onlabel = QLabel()
-        # self.onlabel.setWordWrap(True)
-        # self.offlabel = QLabel()
-        # self.offlabel.setWordWrap(True)
-
-        # left = QVBoxLayout()
-        # left.addWidget(QLabel(text='работают:'))
-        # left.addWidget(self.onlabel)
-        # right = QVBoxLayout()
-        # right.addWidget(QLabel(text='простаивают:'))
-        # right.addWidget(self.offlabel)
-
-        # mainWindow.addLayout(left)
-        # mainWindow.addLayout(right)
-        # vbox.addLayout(mainWindow)
-
         # завязка цикла предсказания на таймер
-
         self.timer = QTimer()
         self.timer.setInterval(1)
         self.timer.timeout.connect(self.updata)
@@ -169,18 +143,18 @@ class MainWindow(QWidget):
             self.vlabel.setPixmap(QPixmap.fromImage(ImageQt(img).copy()))
 
             # хитмап
-            if self.heatmap is None:
-                img = result.orig_img
-                fill = img.copy()
-                cv2.rectangle(fill, (0,0), (int(fill.shape[1]), int(fill.shape[0])), (100,0,0), -1, cv2.LINE_AA)  # filled
-                self.heatmap = cv2.addWeighted(fill, 0.9, img, 0.1, 0)
-            else:
-                a = self.a * 0.3
-                for (x1, y1, x2, y2) in result.boxes.xyxy.tolist():
-                    fill = self.heatmap.copy()
-                    cv2.rectangle(fill, (0,0), (int(fill.shape[1]), int(fill.shape[0])), (0,0,0), -1, cv2.LINE_AA)  # filled
-                    cv2.rectangle(fill, (int(x1),int(y1)), (int(x2),int(y2)), (80,180,250), -1, cv2.LINE_AA)
-                    self.heatmap = cv2.addWeighted(fill, a, self.heatmap , 1 - a, 0)
+            # if self.heatmap is None:
+            #     img = result.orig_img
+            #     fill = img.copy()
+            #     cv2.rectangle(fill, (0,0), (int(fill.shape[1]), int(fill.shape[0])), (100,0,0), -1, cv2.LINE_AA)  # filled
+            #     self.heatmap = cv2.addWeighted(fill, 0.9, img, 0.1, 0)
+            # else:
+            #     a = self.a * 0.3
+            #     for (x1, y1, x2, y2) in result.boxes.xyxy.tolist():
+            #         fill = self.heatmap.copy()
+            #         cv2.rectangle(fill, (0,0), (int(fill.shape[1]), int(fill.shape[0])), (0,0,0), -1, cv2.LINE_AA)  # filled
+            #         cv2.rectangle(fill, (int(x1),int(y1)), (int(x2),int(y2)), (80,180,250), -1, cv2.LINE_AA)
+            #         self.heatmap = cv2.addWeighted(fill, a, self.heatmap , 1 - a, 0)
 
         except StopIteration:
             tracks = self.model.last_tracks
@@ -230,9 +204,9 @@ class MainWindow(QWidget):
                 
                 self.json[-1]['events'].append(event)
 
-            img = Image.fromarray(self.heatmap[:,:,::-1])
-            img.thumbnail((1028, 1000), Image.LANCZOS)
-            self.vlabel.setPixmap(QPixmap.fromImage(ImageQt(img).copy()))
+            # img = Image.fromarray(self.heatmap[:,:,::-1])
+            # img.thumbnail((1028, 1000), Image.LANCZOS)
+            # self.vlabel.setPixmap(QPixmap.fromImage(ImageQt(img).copy()))
 
             self.timer.stop()
             self.show_popup_window('Обработка видео завершена, вы можете сохранить статистику')

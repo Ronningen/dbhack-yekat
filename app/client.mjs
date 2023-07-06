@@ -18,23 +18,23 @@ function createPeerConnection() {
     pc = new RTCPeerConnection(config);
 
     // register some listeners to help debugging
-    pc.addEventListener('icegatheringstatechange', function() {
+    pc.addEventListener('icegatheringstatechange', function () {
         iceGatheringLog.textContent += ' -> ' + pc.iceGatheringState;
     }, false);
     iceGatheringLog.textContent = pc.iceGatheringState;
 
-    pc.addEventListener('iceconnectionstatechange', function() {
+    pc.addEventListener('iceconnectionstatechange', function () {
         iceConnectionLog.textContent += ' -> ' + pc.iceConnectionState;
     }, false);
     iceConnectionLog.textContent = pc.iceConnectionState;
 
-    pc.addEventListener('signalingstatechange', function() {
+    pc.addEventListener('signalingstatechange', function () {
         signalingLog.textContent += ' -> ' + pc.signalingState;
     }, false);
     signalingLog.textContent = pc.signalingState;
 
     // connect audio / video
-    pc.addEventListener('track', function(evt) {
+    pc.addEventListener('track', function (evt) {
         if (evt.track.kind == 'video')
             document.getElementById('video').srcObject = evt.streams[0];
         else
@@ -45,11 +45,11 @@ function createPeerConnection() {
 }
 
 function negotiate() {
-    return pc.createOffer().then(function(offer) {
+    return pc.createOffer().then(function (offer) {
         return pc.setLocalDescription(offer);
-    }).then(function() {
+    }).then(function () {
         // wait for ICE gathering to complete
-        return new Promise(function(resolve) {
+        return new Promise(function (resolve) {
             if (pc.iceGatheringState === 'complete') {
                 resolve();
             } else {
@@ -62,7 +62,7 @@ function negotiate() {
                 pc.addEventListener('icegatheringstatechange', checkState);
             }
         });
-    }).then(function() {
+    }).then(function () {
         var offer = pc.localDescription;
 
         document.getElementById('offer-sdp').textContent = offer.sdp;
@@ -71,18 +71,19 @@ function negotiate() {
                 sdp: offer.sdp,
                 type: offer.type,
                 stream_link: document.getElementById('input-stream-link').value,
+                file_path: document.getElementById('input-file').value
             }),
             headers: {
                 'Content-Type': 'application/json'
             },
             method: 'POST'
         });
-    }).then(function(response) {
+    }).then(function (response) {
         return response.json();
-    }).then(function(answer) {
+    }).then(function (answer) {
         document.getElementById('answer-sdp').textContent = answer.sdp;
         return pc.setRemoteDescription(answer);
-    }).catch(function(e) {
+    }).catch(function (e) {
         alert(e);
     });
 }
@@ -106,19 +107,19 @@ function start() {
     var parameters = { "ordered": true }
 
     dc = pc.createDataChannel('chat', parameters);
-    dc.onclose = function() {
+    dc.onclose = function () {
         clearInterval(dcInterval);
         dataChannelLog.textContent += '- close\n';
     };
-    dc.onopen = function() {
+    dc.onopen = function () {
         dataChannelLog.textContent += '- open\n';
-        dcInterval = setInterval(function() {
+        dcInterval = setInterval(function () {
             var message = 'ping ' + current_stamp();
             dataChannelLog.textContent += '> ' + message + '\n';
             dc.send(message);
         }, 1000);
     };
-    dc.onmessage = function(evt) {
+    dc.onmessage = function (evt) {
         dataChannelLog.textContent += '< ' + evt.data + '\n';
 
         if (evt.data.substring(0, 4) === 'pong') {
@@ -132,7 +133,7 @@ function start() {
     console.log(ts.receiver)
     negotiate();
 
-    document.getElementById('stop').style.display = 'inline-block';
+    // document.getElementById('stop').style.display = 'inline-block';
 }
 
 function stop() {
@@ -145,7 +146,7 @@ function stop() {
 
     // close transceivers
     if (pc.getTransceivers) {
-        pc.getTransceivers().forEach(function(transceiver) {
+        pc.getTransceivers().forEach(function (transceiver) {
             if (transceiver.stop) {
                 transceiver.stop();
             }
@@ -153,14 +154,16 @@ function stop() {
     }
 
     // close local audio / video
-    pc.getSenders().forEach(function(sender) {
+    pc.getSenders().forEach(function (sender) {
         sender.track.stop();
     });
 
     // close peer connection
-    setTimeout(function() {
+    setTimeout(function () {
         pc.close();
     }, 500);
+
+    document.getElementById('start').style.display = 'inline-block';
 }
 
 function sdpFilterCodec(kind, codec, realSdp) {
@@ -168,7 +171,7 @@ function sdpFilterCodec(kind, codec, realSdp) {
     var rtxRegex = new RegExp('a=fmtp:(\\d+) apt=(\\d+)\r$');
     var codecRegex = new RegExp('a=rtpmap:([0-9]+) ' + escapeRegExp(codec))
     var videoRegex = new RegExp('(m=' + kind + ' .*?)( ([0-9]+))*\\s*$')
-    
+
     var lines = realSdp.split('\n');
 
     var isKind = false;
@@ -222,4 +225,15 @@ function sdpFilterCodec(kind, codec, realSdp) {
 
 function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
-}
+} 
+
+let form = document.getElementById("container");
+
+form.addEventListener("submit", e => {
+    e.preventDefault()
+    let xhr = new XMLHttpRequest()
+    let formData = new FormData(form)
+    xhr.open("POST", "/upload", true)
+    xhr.send(formData)
+    start()
+})
