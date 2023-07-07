@@ -77,7 +77,7 @@ async def index(request):
     """
     Returns index page HTML
     """
-    content = open(os.path.join(ROOT, "index.html"), "r").read()
+    content = open(os.path.join(ROOT, "web/index.html"), "r").read()
     return web.Response(content_type="text/html", text=content)
 
 
@@ -85,7 +85,7 @@ async def javascript(request):
     """
     Returns JavaScript script for index page
     """
-    content = open(os.path.join(ROOT, "client.mjs"), "r").read()
+    content = open(os.path.join(ROOT, "web/client.mjs"), "r").read()
     return web.Response(content_type="application/javascript", text=content)
 
 
